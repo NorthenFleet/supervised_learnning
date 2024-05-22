@@ -52,3 +52,4 @@ def train(env, model, num_episodes, lr=0.001, gamma=0.99):
 # 使用示例
 if __name__ == '__main__':
     env = Env()
+    model = GNN()
