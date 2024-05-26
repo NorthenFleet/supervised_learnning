@@ -1,6 +1,11 @@
 import ray
 import torch
 import torch.nn as nn
+from env import SampleGenerator, DataPreprocessor
+from network import DecisionNetwork
+from torch.utils.data import DataLoader
+import torch.optim as optim
+from model_manager import ModelManager
 
 
 class TrainModel:
@@ -43,10 +48,10 @@ class TrainModel:
                 f"Epoch {epoch + 1}/{self.config['num_epochs']}, Loss: {total_loss / len(self.dataloader)}")
 
     def save_model(self, path):
-        self.model.save_model(path)
+        ModelManager.save_model(self.model, path)
 
     def load_model(self, path):
-        self.model.load_model(path)
+        ModelManager.load_model(self.model, path, self.device)
 
     def train_with_ray(self):
         def train_model_with_ray(config):
