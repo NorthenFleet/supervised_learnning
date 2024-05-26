@@ -6,45 +6,92 @@ import numpy as np
 
 
 class SampleGenerator(Dataset):
-    def __init__(self, num_samples, max_entities, max_tasks, entity_dim, task_dim):
+    def __init__(self, num_samples, data_preprocessor):
         self.num_samples = num_samples
-        self.max_entities = max_entities
-        self.max_tasks = max_tasks
-        self.entity_dim = entity_dim
-        self.task_dim = task_dim
+        self.data_preprocessor = data_preprocessor
 
     def __len__(self):
         return self.num_samples
 
     def __getitem__(self, idx):
-        num_entities = np.random.randint(1, self.max_entities + 1)
-        num_tasks = np.random.randint(1, self.max_tasks + 1)
+        # 生成实际意义的兵力集合属性
+        num_entities = np.random.randint(
+            1, self.data_preprocessor.max_entities + 1)
+        entities = np.zeros((num_entities, self.data_preprocessor.entity_dim))
+        for i in range(num_entities):
+            position = np.random.uniform(0, 100, size=2)  # 平台位置 (x, y)
+            range_ = np.random.uniform(50, 500)           # 航程
+            speed = np.random.uniform(10, 30)             # 速度
+            detection_range = np.random.uniform(10, 100)  # 探测距离
+            endurance = np.random.uniform(1, 10)          # 可持续时长
+            entities[i] = np.concatenate(
+                [position, [range_, speed, detection_range, endurance]])
 
-        entities = np.random.randn(num_entities, self.entity_dim)
-        tasks = np.random.randn(num_tasks, self.task_dim)
+        # 生成实际意义的任务集合属性
+        num_tasks = np.random.randint(1, self.data_preprocessor.max_tasks + 1)
+        tasks = np.zeros((num_tasks, self.data_preprocessor.task_dim))
+        for j in range(num_tasks):
+            priority = np.random.randint(1, 5)            # 任务优先级
+            position = np.random.uniform(0, 100, size=2)  # 任务位置 (x, y)
+            # 任务类型 (侦察=0, 打击=1, 支援=2)
+            task_type = np.random.randint(0, 3)
+            tasks[j] = np.concatenate([[priority], position, [task_type]])
 
-        # Padding entities and tasks to max length
+        padded_entities, padded_tasks, entity_mask, task_mask = self.data_preprocessor.pad_and_mask(
+            entities, tasks)
+
+        # Example: random task assignment for demonstration purposes
+        target = np.random.randint(0, num_tasks)
+
+        return padded_entities, padded_tasks, entity_mask, task_mask, target
+
+    def __getreward__(self, entities, tasks):
+        first_entity = entities[0]  # 获取第一个算子
+        entity_position = first_entity[:2]  # 第一个算子的位置
+        entity_speed = first_entity[3]  # 第一个算子的速度
+
+        task_distances = []
+        for idx, task in enumerate(tasks):
+            task_priority = task[0]
+            task_position = task[1:3]
+            distance = np.linalg.norm(entity_position - task_position)
+            arrival_time = distance / entity_speed
+            task_distances.append((task_priority, arrival_time, idx))
+
+        # 按任务优先级和到达时间排序
+        task_distances.sort(key=lambda x: (x[0], x[1]))
+
+        # 返回第一个算子最佳任务的序号
+        return task_distances[0][2]
+
+
+class DataPreprocessor:
+    def __init__(self, max_entities, max_tasks, entity_dim, task_dim):
+        self.max_entities = max_entities
+        self.max_tasks = max_tasks
+        self.entity_dim = entity_dim
+        self.task_dim = task_dim
+
+    def pad_and_mask(self, entities, tasks):
         entities_padded = np.zeros((self.max_entities, self.entity_dim))
         tasks_padded = np.zeros((self.max_tasks, self.task_dim))
+
+        num_entities = entities.shape[0]
+        num_tasks = tasks.shape[0]
 
         entities_padded[:num_entities] = entities
         tasks_padded[:num_tasks] = tasks
 
-        # Mask for padding (1 for real, 0 for padding)
         entity_mask = np.zeros(self.max_entities)
         task_mask = np.zeros(self.max_tasks)
         entity_mask[:num_entities] = 1
         task_mask[:num_tasks] = 1
 
-        # Example: random task assignment for demonstration purposes
-        target = np.random.randint(0, num_tasks)
-
         return (
             torch.tensor(entities_padded, dtype=torch.float32),
             torch.tensor(tasks_padded, dtype=torch.float32),
             torch.tensor(entity_mask, dtype=torch.float32),
-            torch.tensor(task_mask, dtype=torch.float32),
-            target
+            torch.tensor(task_mask, dtype=torch.float32)
         )
 
 
@@ -65,14 +112,14 @@ class TransformerEncoder(nn.Module):
 class DecisionNetwork(nn.Module):
     def __init__(self, entity_input_dim, entity_num_heads, task_input_dim, task_num_heads, hidden_dim, num_layers, mlp_hidden_dim, output_dim):
         super(DecisionNetwork, self).__init__()
+
         self.entity_encoder = TransformerEncoder(
             entity_input_dim, entity_num_heads, hidden_dim, num_layers)
         self.task_encoder = TransformerEncoder(
             task_input_dim, task_num_heads, hidden_dim, num_layers)
 
-        # 更新此处，将 hidden_dim 乘以 2 作为 MLP 的输入维度
         self.mlp = nn.Sequential(
-            nn.Linear(hidden_dim * 2, mlp_hidden_dim),
+            nn.Linear(entity_input_dim+task_input_dim, mlp_hidden_dim),
             nn.ReLU(),
             nn.Dropout(p=0.3),
             nn.Linear(mlp_hidden_dim, output_dim)
@@ -86,7 +133,6 @@ class DecisionNetwork(nn.Module):
             entities, entity_mask).mean(dim=0)
         encoded_tasks = self.task_encoder(tasks, task_mask).mean(dim=0)
 
-        # combined 的维度应为 (batch_size, hidden_dim * 2)
         combined = torch.cat((encoded_entities, encoded_tasks), dim=1)
         output = self.mlp(combined)
         return F.softmax(output, dim=-1)
@@ -114,12 +160,12 @@ def train_model(model, dataloader, num_epochs, criterion, optimizer, device):
 
 if __name__ == "__main__":
     num_samples = 1000
-    max_entities = 20
-    max_tasks = 12
-    entity_dim = 8  # 保证 entity_dim 可以被 entity_num_heads 整除
-    task_dim = 6    # 保证 task_dim 可以被 task_num_heads 整除
+    max_entities = 10
+    max_tasks = 5
+    entity_dim = 5  # 平台位置 (x, y), 航程, 速度, 探测距离, 可持续时长
+    task_dim = 3    # 任务优先级, 任务位置 (x, y), 任务类型
     batch_size = 32
-    entity_num_heads = 4
+    entity_num_heads = 5
     task_num_heads = 3
     hidden_dim = 64
     num_layers = 2
@@ -127,8 +173,9 @@ if __name__ == "__main__":
     output_dim = max_tasks
     num_epochs = 10
 
-    dataset = SampleGenerator(
-        num_samples, max_entities, max_tasks, entity_dim, task_dim)
+    data_preprocessor = DataPreprocessor(
+        max_entities, max_tasks, entity_dim, task_dim)
+    dataset = SampleGenerator(num_samples, data_preprocessor)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
     model = DecisionNetwork(entity_dim, entity_num_heads, task_dim,
