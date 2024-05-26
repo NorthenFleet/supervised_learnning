@@ -6,6 +6,8 @@ from network import DecisionNetwork
 from torch.utils.data import DataLoader
 import torch.optim as optim
 from model_manager import ModelManager
+from ray import tune
+from ray.tune.schedulers import ASHAScheduler
 
 
 class TrainModel:
@@ -44,6 +46,7 @@ class TrainModel:
 
                 total_loss += loss.item()
 
+            tune.report(loss=total_loss / len(self.dataloader))
             print(
                 f"Epoch {epoch + 1}/{self.config['num_epochs']}, Loss: {total_loss / len(self.dataloader)}")
 
@@ -54,24 +57,23 @@ class TrainModel:
         ModelManager.load_model(self.model, path, self.device)
 
     def train_with_ray(self):
-        def train_model_with_ray(config):
-            trainer = TrainModel(config)
-            trainer.train()
-            tune.report(loss=total_loss / len(self.dataloader))
-
         analysis = tune.run(
-            train_model_with_ray,
+            self.train_model_with_ray,
             config=self.config,
             num_samples=10,
-            scheduler=ASHAScheduler(metric="loss", mode="min")
+            scheduler=ASHAScheduler(metric="loss", mode="min"),
+            resources_per_trial={"cpu": 1, "gpu": 1}  # 依据实际硬件情况调整
         )
 
         print("Best config: ", analysis.best_config)
         self.load_model(analysis.best_checkpoint)
 
+    def train_model_with_ray(self, config):
+        trainer = TrainModel(config)
+        trainer.train()
+
 
 if __name__ == "__main__":
-
     config = {
         "num_samples": 1000,
         "max_entities": 10,
