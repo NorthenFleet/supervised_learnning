@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
 from torch.utils.data import Dataset, DataLoader
+import numpy as np
 
 
 class SampleGenerator(Dataset):
@@ -50,6 +50,7 @@ class SampleGenerator(Dataset):
 
 class TransformerEncoder(nn.Module):
     def __init__(self, input_dim, num_heads, hidden_dim, num_layers):
+        assert input_dim % num_heads == 0, "input_dim must be divisible by num_heads"
         super(TransformerEncoder, self).__init__()
         self.encoder_layer = nn.TransformerEncoderLayer(
             d_model=input_dim, nhead=num_heads, dim_feedforward=hidden_dim)
@@ -62,12 +63,12 @@ class TransformerEncoder(nn.Module):
 
 
 class DecisionNetwork(nn.Module):
-    def __init__(self, entity_input_dim, task_input_dim, num_heads, hidden_dim, num_layers, mlp_hidden_dim, output_dim):
+    def __init__(self, entity_input_dim, entity_num_heads, task_input_dim, task_num_heads, hidden_dim, num_layers, mlp_hidden_dim, output_dim):
         super(DecisionNetwork, self).__init__()
         self.entity_encoder = TransformerEncoder(
-            entity_input_dim, num_heads, hidden_dim, num_layers)
+            entity_input_dim, entity_num_heads, hidden_dim, num_layers)
         self.task_encoder = TransformerEncoder(
-            task_input_dim, num_heads, hidden_dim, num_layers)
+            task_input_dim, task_num_heads, hidden_dim, num_layers)
 
         self.mlp = nn.Sequential(
             nn.Linear(hidden_dim * 2, mlp_hidden_dim),
@@ -112,11 +113,12 @@ def train_model(model, dataloader, num_epochs, criterion, optimizer, device):
 if __name__ == "__main__":
     num_samples = 1000
     max_entities = 10
-    max_tasks = 5
-    entity_dim = 8
-    task_dim = 6
+    max_tasks = 10
+    entity_dim = 8  # 保证 entity_dim 可以被 entity_num_heads 整除
+    task_dim = 6    # 保证 task_dim 可以被 task_num_heads 整除
     batch_size = 32
-    num_heads = 4
+    entity_num_heads = 4
+    task_num_heads = 3
     hidden_dim = 64
     num_layers = 2
     mlp_hidden_dim = 128
@@ -127,8 +129,8 @@ if __name__ == "__main__":
         num_samples, max_entities, max_tasks, entity_dim, task_dim)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
-    model = DecisionNetwork(entity_dim, task_dim, num_heads,
-                            hidden_dim, num_layers, mlp_hidden_dim, output_dim)
+    model = DecisionNetwork(entity_dim, entity_num_heads, task_dim,
+                            task_num_heads, hidden_dim, num_layers, mlp_hidden_dim, output_dim)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
 
