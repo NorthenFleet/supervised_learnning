@@ -93,5 +93,15 @@ if __name__ == "__main__":
 
     ray.init()
     trainer = TrainModel(config)
+
+    # 加载现有的模型
+    model_path = "best_model.pth"
+    try:
+        trainer.load_model(model_path)
+        print(f"Successfully loaded model from {model_path}")
+    except FileNotFoundError:
+        print(
+            f"No existing model found at {model_path}. Starting training from scratch.")
+
     trainer.train_with_ray()
     trainer.save_model("best_model.pth")
