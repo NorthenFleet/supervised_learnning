@@ -70,6 +70,7 @@ class DecisionNetwork(nn.Module):
         self.task_encoder = TransformerEncoder(
             task_input_dim, task_num_heads, hidden_dim, num_layers)
 
+        # 更新此处，将 hidden_dim 乘以 2 作为 MLP 的输入维度
         self.mlp = nn.Sequential(
             nn.Linear(hidden_dim * 2, mlp_hidden_dim),
             nn.ReLU(),
@@ -85,6 +86,7 @@ class DecisionNetwork(nn.Module):
             entities, entity_mask).mean(dim=0)
         encoded_tasks = self.task_encoder(tasks, task_mask).mean(dim=0)
 
+        # combined 的维度应为 (batch_size, hidden_dim * 2)
         combined = torch.cat((encoded_entities, encoded_tasks), dim=1)
         output = self.mlp(combined)
         return F.softmax(output, dim=-1)
@@ -112,8 +114,8 @@ def train_model(model, dataloader, num_epochs, criterion, optimizer, device):
 
 if __name__ == "__main__":
     num_samples = 1000
-    max_entities = 10
-    max_tasks = 10
+    max_entities = 20
+    max_tasks = 12
     entity_dim = 8  # 保证 entity_dim 可以被 entity_num_heads 整除
     task_dim = 6    # 保证 task_dim 可以被 task_num_heads 整除
     batch_size = 32
