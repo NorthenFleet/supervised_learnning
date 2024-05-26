@@ -14,46 +14,44 @@ class SampleGenerator(Dataset):
         return self.num_samples
 
     def __getitem__(self, idx):
-        # 生成实际意义的兵力集合属性
         num_entities = np.random.randint(
             1, self.data_preprocessor.max_entities + 1)
         entities = np.zeros((num_entities, self.data_preprocessor.entity_dim))
         for i in range(num_entities):
-            position = np.random.uniform(0, 100, size=2)  # 平台位置 (x, y)
+            x = np.random.uniform(0, 100)                 # 平台位置 x
+            y = np.random.uniform(0, 100)                 # 平台位置 y
             range_ = np.random.uniform(50, 500)           # 航程
             speed = np.random.uniform(10, 30)             # 速度
             detection_range = np.random.uniform(10, 100)  # 探测距离
             endurance = np.random.uniform(1, 10)          # 可持续时长
-            entities[i] = np.concatenate(
-                [position, [range_, speed, detection_range, endurance]])
+            entities[i] = [x, y, range_, speed, detection_range, endurance]
 
-        # 生成实际意义的任务集合属性
         num_tasks = np.random.randint(1, self.data_preprocessor.max_tasks + 1)
         tasks = np.zeros((num_tasks, self.data_preprocessor.task_dim))
         for j in range(num_tasks):
-            priority = np.random.randint(1, 5)            # 任务优先级
-            position = np.random.uniform(0, 100, size=2)  # 任务位置 (x, y)
+            priority = np.random.randint(1, 4)            # 任务优先级
+            x = np.random.uniform(0, 100)                 # 任务位置 x
+            y = np.random.uniform(0, 100)                 # 任务位置 y
             # 任务类型 (侦察=0, 打击=1, 支援=2)
             task_type = np.random.randint(0, 3)
-            tasks[j] = np.concatenate([[priority], position, [task_type]])
+            tasks[j] = [priority, x, y, task_type]
 
         padded_entities, padded_tasks, entity_mask, task_mask = self.data_preprocessor.pad_and_mask(
             entities, tasks)
 
-        # Example: random task assignment for demonstration purposes
-        target = np.random.randint(0, num_tasks)
+        target = self.__getreward__(entities, tasks)  # 计算最佳任务
 
         return padded_entities, padded_tasks, entity_mask, task_mask, target
 
     def __getreward__(self, entities, tasks):
         first_entity = entities[0]  # 获取第一个算子
-        entity_position = first_entity[:2]  # 第一个算子的位置
+        entity_position = first_entity[:2]  # 第一个算子的位置 (x, y)
         entity_speed = first_entity[3]  # 第一个算子的速度
 
         task_distances = []
         for idx, task in enumerate(tasks):
             task_priority = task[0]
-            task_position = task[1:3]
+            task_position = task[1:3]  # 任务位置 (x, y)
             distance = np.linalg.norm(entity_position - task_position)
             arrival_time = distance / entity_speed
             task_distances.append((task_priority, arrival_time, idx))
@@ -162,11 +160,11 @@ if __name__ == "__main__":
     num_samples = 1000
     max_entities = 10
     max_tasks = 5
-    entity_dim = 5  # 平台位置 (x, y), 航程, 速度, 探测距离, 可持续时长
-    task_dim = 3    # 任务优先级, 任务位置 (x, y), 任务类型
+    entity_dim = 6  # 平台位置 (x, y), 航程, 速度, 探测距离, 可持续时长
+    task_dim = 4    # 任务优先级, 任务位置 (x, y), 任务类型
     batch_size = 32
-    entity_num_heads = 5
-    task_num_heads = 3
+    entity_num_heads = 2
+    task_num_heads = 2
     hidden_dim = 64
     num_layers = 2
     mlp_hidden_dim = 128
