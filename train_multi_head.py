@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader
 from model_manager import ModelManager
 
 
-class Train:
+class TrainModel:
     def __init__(self, config):
         self.config = config
         self.data_preprocessor = DataPreprocessor(
@@ -72,7 +72,7 @@ class Train:
         self.load_model(analysis.best_checkpoint)
 
     def train_model_with_ray(self, config):
-        trainer = Train(config)
+        trainer = TrainModel(config)
         trainer.train()
 
 
