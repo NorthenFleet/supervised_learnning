@@ -22,7 +22,7 @@ class TrainModel:
             "cuda" if torch.cuda.is_available() else "cpu")
 
         self.model = DecisionNetwork(config["entity_dim"], config["entity_num_heads"], config["task_dim"],
-                                     config["task_num_heads"], config["hidden_dim"], config["num_layers"], config["mlp_hidden_dim"], config["max_entities"], config["output_dim"])
+                                     config["task_num_heads"], config["hidden_dim"], config["num_layers"], config["mlp_hidden_dim"], config["output_dim"])
         self.model.to(self.device)
 
         self.criterion = nn.CrossEntropyLoss()
