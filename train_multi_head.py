@@ -10,27 +10,30 @@ from model_manager import ModelManager
 
 
 class TrainModel:
-    def __init__(self, config):
-        self.config = config
+    def __init__(self, env_config, network_config, training_config):
+        self.env_config = env_config
+        self.network_config = network_config
+        self.training_config = training_config
+        
         self.data_preprocessor = DataPreprocessor(
-            config["max_entities"], config["max_tasks"], config["entity_dim"], config["task_dim"])
+            env_config["max_entities"], env_config["max_tasks"], env_config["entity_dim"], env_config["task_dim"])
         self.dataset = SampleGenerator(
-            config["num_samples"], self.data_preprocessor)
+            training_config["num_samples"], self.data_preprocessor)
         self.dataloader = DataLoader(
-            self.dataset, batch_size=config["batch_size"], shuffle=True)
+            self.dataset, batch_size=training_config["batch_size"], shuffle=True)
         self.device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu")
 
-        self.model = DecisionNetwork(config["entity_dim"], config["entity_num_heads"], config["task_dim"],
-                                     config["task_num_heads"], config["hidden_dim"], config["num_layers"], config["mlp_hidden_dim"], config["output_dim"])
+        self.model = DecisionNetwork(env_config["entity_dim"], network_config["entity_num_heads"], env_config["task_dim"],
+                                     network_config["task_num_heads"], network_config["hidden_dim"], network_config["num_layers"], network_config["mlp_hidden_dim"], env_config["max_entities"], network_config["output_dim"])
         self.model.to(self.device)
 
         self.criterion = nn.CrossEntropyLoss()
         self.optimizer = torch.optim.Adam(
-            self.model.parameters(), lr=config["lr"])
+            self.model.parameters(), lr=training_config["lr"])
 
     def train(self):
-        for epoch in range(self.config["num_epochs"]):
+        for epoch in range(self.training_config["num_epochs"]):
             self.model.train()
             total_loss = 0.0
             for entities, tasks, entity_mask, task_mask, targets in self.dataloader:
@@ -51,7 +54,7 @@ class TrainModel:
                 total_loss += loss.item()
 
             tune.report(loss=total_loss / len(self.dataloader))
-            print(f"Epoch {epoch + 1}/{self.config['num_epochs']}, Loss: {total_loss / len(self.dataloader)}")
+            print(f"Epoch {epoch + 1}/{self.training_config['num_epochs']}, Loss: {total_loss / len(self.dataloader)}")
 
     def save_model(self, path):
         ModelManager.save_model(self.model, path)
@@ -62,8 +65,12 @@ class TrainModel:
     def train_with_ray(self):
         analysis = tune.run(
             self.train_model_with_ray,
-            config=self.config,
-            num_samples=10,
+            config={
+                "env_config": self.env_config,
+                "network_config": self.network_config,
+                "training_config": self.training_config
+            },
+            num_samples=10,  # 这是并行试验的数量
             scheduler=ASHAScheduler(metric="loss", mode="min"),
             resources_per_trial={"cpu": 1, "gpu": 1}  # 依据实际硬件情况调整
         )
@@ -72,31 +79,36 @@ class TrainModel:
         self.load_model(analysis.best_checkpoint)
 
     def train_model_with_ray(self, config):
-        trainer = TrainModel(config)
+        trainer = TrainModel(config["env_config"], config["network_config"], config["training_config"])
         trainer.train()
 
 
 if __name__ == "__main__":
-    config = {
-        "num_samples": 1000,
+    env_config = {
         "max_entities": 10,
         "max_tasks": 5,
         "entity_dim": 6,  # 平台位置 (x, y), 航程, 速度, 探测距离, 可持续时长
-        "task_dim": 4,    # 任务优先级, 任务位置 (x, y), 任务类型
-        "batch_size": 32,
+        "task_dim": 4    # 任务优先级, 任务位置 (x, y), 任务类型
+    }
+
+    network_config = {
         "entity_num_heads": 2,
         "task_num_heads": 2,
         "hidden_dim": 64,
         "num_layers": 2,
         "mlp_hidden_dim": 128,
-        "max_entities": 10,  # 与 max_entities 保持一致
-        "output_dim": 5,     # max_tasks
+        "output_dim": 5     # max_tasks
+    }
+
+    training_config = {
+        "num_samples": 1000,
+        "batch_size": 32,
         "lr": 0.001,
         "num_epochs": 50
     }
 
     ray.init()
-    trainer = TrainModel(config)
+    trainer = TrainModel(env_config, network_config, training_config)
     
     # 加载现有的模型
     model_path = "best_model.pth"
