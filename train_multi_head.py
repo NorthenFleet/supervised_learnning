@@ -72,7 +72,7 @@ class TrainModel:
             },
             num_samples=10,  # 这是并行试验的数量
             scheduler=ASHAScheduler(metric="loss", mode="min"),
-            resources_per_trial={"cpu": 1, "gpu": 1}  # 依据实际硬件情况调整
+            resources_per_trial={"cpu": 2, "gpu": 2}  # 依据实际硬件情况调整
         )
 
         print("Best config: ", analysis.best_config)
