@@ -107,7 +107,7 @@ if __name__ == "__main__":
         "num_epochs": 50
     }
 
-    ray.init()
+    ray.init(num_cpus=2, num_gpus=2)  # 确保 Ray 正确识别并使用 GPU 资源
     trainer = TrainModel(env_config, network_config, training_config)
     
     # 加载现有的模型
