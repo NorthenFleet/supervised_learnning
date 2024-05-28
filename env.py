@@ -40,9 +40,9 @@ class SampleGenerator(Dataset):
         padded_entities, padded_tasks, entity_mask, task_mask = self.data_preprocessor.pad_and_mask(
             entities, tasks)
 
-        target = self.__getreward__(entities, tasks)  # 计算最佳任务
+        targets = self.__getreward__(entities, tasks)  # 计算最佳任务
 
-        return padded_entities, padded_tasks, entity_mask, task_mask, target
+        return padded_entities, padded_tasks, entity_mask, task_mask, targets
 
     def __getreward__(self, entities, tasks):
         num_entities = len(entities)
@@ -92,8 +92,15 @@ class SampleGenerator(Dataset):
                     if score > best_score:
                         best_score = score
                         best_entity = i
-            task_assignments[best_entity] = task_idx
-            task_scores[best_entity] = best_score
+            
+            if best_entity is not None:
+                task_assignments[best_entity] = task_idx
+                task_scores[best_entity] = best_score
+            else:
+                # 随机选择一个实体分配任务，以确保任务被执行
+                random_entity = np.random.choice(range(num_entities))
+                task_assignments[random_entity] = task_idx
+                task_scores[random_entity] = tasks[task_idx][0] / (1 + 1e-5)  # 随机选择实体分配任务
 
         return task_assignments, task_scores
 
