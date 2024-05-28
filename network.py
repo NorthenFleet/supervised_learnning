@@ -28,7 +28,7 @@ class DecisionNetwork(nn.Module):
         self.max_entities = max_entities
 
         self.mlp = nn.Sequential(
-            nn.Linear(hidden_dim * 2, mlp_hidden_dim),
+            nn.Linear(entity_input_dim+task_input_dim, mlp_hidden_dim),
             nn.ReLU(),
             nn.Dropout(p=0.3),
             nn.Linear(mlp_hidden_dim, output_dim)
@@ -56,8 +56,10 @@ class DecisionNetworkMultiHead(nn.Module):
     def __init__(self, entity_input_dim, entity_num_heads, task_input_dim, task_num_heads, hidden_dim, num_layers, mlp_hidden_dim, max_entities, output_dim):
         super(DecisionNetwork, self).__init__()
 
-        self.entity_encoder = TransformerEncoder(entity_input_dim, entity_num_heads, hidden_dim, num_layers)
-        self.task_encoder = TransformerEncoder(task_input_dim, task_num_heads, hidden_dim, num_layers)
+        self.entity_encoder = TransformerEncoder(
+            entity_input_dim, entity_num_heads, hidden_dim, num_layers)
+        self.task_encoder = TransformerEncoder(
+            task_input_dim, task_num_heads, hidden_dim, num_layers)
 
         # 多头输出，每个头部对应一个平台的任务分配
         self.heads = nn.ModuleList([
@@ -73,7 +75,8 @@ class DecisionNetworkMultiHead(nn.Module):
         entities = entities.permute(1, 0, 2)
         tasks = tasks.permute(1, 0, 2)
 
-        encoded_entities = self.entity_encoder(entities, entity_mask).mean(dim=0)
+        encoded_entities = self.entity_encoder(
+            entities, entity_mask).mean(dim=0)
         encoded_tasks = self.task_encoder(tasks, task_mask).mean(dim=0)
 
         combined = torch.cat((encoded_entities, encoded_tasks), dim=1)

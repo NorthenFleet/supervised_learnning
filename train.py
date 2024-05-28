@@ -20,7 +20,7 @@ class Train:
             "cuda" if torch.cuda.is_available() else "cpu")
 
         self.model = DecisionNetwork(env_config["entity_dim"], network_config["entity_num_heads"], env_config["task_dim"],
-                                     network_config["task_num_heads"], network_config["hidden_dim"], network_config["num_layers"], network_config["mlp_hidden_dim"], network_config["output_dim"])
+                                     network_config["task_num_heads"], network_config["hidden_dim"], network_config["num_layers"], network_config["mlp_hidden_dim"], env_config["max_entities"], network_config["output_dim"])
         self.model.to(self.device)
 
         self.criterion = nn.CrossEntropyLoss()
@@ -41,13 +41,15 @@ class Train:
                 outputs = self.model(entities, tasks, entity_mask, task_mask)
 
                 # 确保outputs和task_assignments的维度匹配
-                assert outputs.shape[1] == task_assignments.shape[1], "输出和任务分配的维度不匹配"
+                assert outputs.shape[0] == task_assignments.shape[0], "输出和任务分配的维度不匹配"
+
+                # 过滤掉无效的任务分配（-1）
+                valid_mask = task_assignments != -1
+                valid_task_assignments = task_assignments[valid_mask]
+                valid_outputs = outputs[valid_mask]
 
                 # 计算每个平台对应任务的损失
-                loss = 0
-                for i in range(outputs.shape[1]):
-                    loss += self.criterion(outputs[:, i],
-                                           task_assignments[:, i])
+                loss = self.criterion(valid_outputs, valid_task_assignments)
 
                 loss.backward()
                 self.optimizer.step()
