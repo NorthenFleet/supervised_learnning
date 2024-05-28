@@ -45,23 +45,33 @@ class SampleGenerator(Dataset):
         return padded_entities, padded_tasks, entity_mask, task_mask, target
 
     def __getreward__(self, entities, tasks):
-        first_entity = entities[0]  # 获取第一个算子
-        entity_position = first_entity[:2]  # 第一个算子的位置 (x, y)
-        entity_speed = first_entity[3]  # 第一个算子的速度
+        num_entities = len(entities)
+        num_tasks = len(tasks)
 
-        task_distances = []
-        for idx, task in enumerate(tasks):
-            task_priority = task[0]
-            task_position = task[1:3]  # 任务位置 (x, y)
-            distance = np.linalg.norm(entity_position - task_position)
-            arrival_time = distance / entity_speed
-            task_distances.append((task_priority, arrival_time, idx))
+        task_assignments = [-1] * num_entities
+        task_scores = np.zeros(num_entities)
 
-        # 按任务优先级和到达时间排序
-        task_distances.sort(key=lambda x: (x[0], x[1]))
+        for i, entity in enumerate(entities):
+            entity_position = entity[:2]  # 平台位置 (x, y)
+            entity_speed = entity[3]  # 平台速度
 
-        # 返回第一个算子最佳任务的序号
-        return task_distances[0][2]
+            task_distances = []
+            for idx, task in enumerate(tasks):
+                task_priority = task[0]
+                task_position = task[1:3]  # 任务位置 (x, y)
+                distance = np.linalg.norm(entity_position - task_position)
+                arrival_time = distance / entity_speed
+                task_distances.append((task_priority, arrival_time, idx))
+
+            # 按任务优先级和到达时间排序
+            task_distances.sort(key=lambda x: (x[0], x[1]))
+
+            # 选择最佳任务
+            best_task = task_distances[0]
+            task_assignments[i] = best_task[2]
+            task_scores[i] = best_task[0] / (best_task[1] + 1e-5)  # 任务优先级 / 到达时间
+
+        return task_assignments, task_scores
 
 
 class DataPreprocessor:
