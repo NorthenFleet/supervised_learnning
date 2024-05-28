@@ -77,7 +77,8 @@ class SampleGenerator(Dataset):
                     break
 
         # 确保所有任务至少被执行一次
-        unassigned_tasks = [idx for idx, assigned in enumerate(task_assigned) if not assigned]
+        unassigned_tasks = [idx for idx, assigned in enumerate(
+            task_assigned) if not assigned]
         for task_idx in unassigned_tasks:
             best_entity = None
             best_score = float('-inf')
@@ -88,11 +89,12 @@ class SampleGenerator(Dataset):
                     task_position = tasks[task_idx][1:3]  # 任务位置 (x, y)
                     distance = np.linalg.norm(entity_position - task_position)
                     arrival_time = distance / entity_speed
-                    score = tasks[task_idx][0] / (arrival_time + 1e-5)  # 任务优先级 / 到达时间
+                    score = tasks[task_idx][0] / \
+                        (arrival_time + 1e-5)  # 任务优先级 / 到达时间
                     if score > best_score:
                         best_score = score
                         best_entity = i
-            
+
             if best_entity is not None:
                 task_assignments[best_entity] = task_idx
                 task_scores[best_entity] = best_score
@@ -100,7 +102,8 @@ class SampleGenerator(Dataset):
                 # 随机选择一个实体分配任务，以确保任务被执行
                 random_entity = np.random.choice(range(num_entities))
                 task_assignments[random_entity] = task_idx
-                task_scores[random_entity] = tasks[task_idx][0] / (1 + 1e-5)  # 随机选择实体分配任务
+                task_scores[random_entity] = tasks[task_idx][0] / \
+                    (1 + 1e-5)  # 随机选择实体分配任务
 
         return task_assignments, task_scores
 
