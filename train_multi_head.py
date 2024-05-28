@@ -14,7 +14,7 @@ class TrainModel:
         self.env_config = env_config
         self.network_config = network_config
         self.training_config = training_config
-        
+
         self.data_preprocessor = DataPreprocessor(
             env_config["max_entities"], env_config["max_tasks"], env_config["entity_dim"], env_config["task_dim"])
         self.dataset = SampleGenerator(
@@ -25,7 +25,7 @@ class TrainModel:
             "cuda" if torch.cuda.is_available() else "cpu")
 
         self.model = DecisionNetwork(env_config["entity_dim"], network_config["entity_num_heads"], env_config["task_dim"],
-                                     network_config["task_num_heads"], network_config["hidden_dim"], network_config["num_layers"], network_config["mlp_hidden_dim"], network_config["output_dim"])
+                                     network_config["task_num_heads"], network_config["hidden_dim"], network_config["num_layers"], network_config["mlp_hidden_dim"], env_config["max_entities"], network_config["output_dim"])
         self.model.to(self.device)
 
         self.criterion = nn.CrossEntropyLoss()
@@ -36,25 +36,33 @@ class TrainModel:
         for epoch in range(self.training_config["num_epochs"]):
             self.model.train()
             total_loss = 0.0
-            for entities, tasks, entity_mask, task_mask, targets in self.dataloader:
-                entities, tasks, entity_mask, task_mask, targets = entities.to(self.device), tasks.to(
-                    self.device), entity_mask.to(self.device), task_mask.to(self.device), targets.to(self.device)
+            for entities, tasks, entity_mask, task_mask, (task_assignments, task_scores) in self.dataloader:
+                entities, tasks, entity_mask, task_mask = entities.to(self.device), tasks.to(
+                    self.device), entity_mask.to(self.device), task_mask.to(self.device)
+                task_assignments = task_assignments.to(self.device)
 
                 self.optimizer.zero_grad()
                 outputs = self.model(entities, tasks, entity_mask, task_mask)
-                
+
+                # 确保outputs和task_assignments的维度匹配
+                assert outputs.shape[0] == task_assignments.shape[0], "输出和任务分配的维度不匹配"
+
+                # 过滤掉无效的任务分配（-1）
+                valid_mask = task_assignments != -1
+                valid_task_assignments = task_assignments[valid_mask]
+                valid_outputs = outputs[valid_mask]
+
                 # 计算每个平台对应任务的损失
-                loss = 0
-                for i, output in enumerate(outputs):
-                    loss += self.criterion(output, targets[:, i])
-                
+                loss = self.criterion(valid_outputs, valid_task_assignments)
+
                 loss.backward()
                 self.optimizer.step()
 
                 total_loss += loss.item()
 
-            tune.report(loss=total_loss / len(self.dataloader))
-            print(f"Epoch {epoch + 1}/{self.training_config['num_epochs']}, Loss: {total_loss / len(self.dataloader)}")
+            session.report({"loss": total_loss / len(self.dataloader)})
+            print(
+                f"Epoch {epoch + 1}/{self.training_config['num_epochs']}, Loss: {total_loss / len(self.dataloader)}")
 
     def save_model(self, path):
         ModelManager.save_model(self.model, path)
@@ -79,7 +87,8 @@ class TrainModel:
         self.load_model(analysis.best_checkpoint)
 
     def train_model_with_ray(self, config):
-        trainer = TrainModel(config["env_config"], config["network_config"], config["training_config"])
+        trainer = TrainModel(
+            config["env_config"], config["network_config"], config["training_config"])
         trainer.train()
 
 
@@ -109,14 +118,15 @@ if __name__ == "__main__":
 
     ray.init(num_cpus=2, num_gpus=2)  # 确保 Ray 正确识别并使用 GPU 资源
     trainer = TrainModel(env_config, network_config, training_config)
-    
+
     # 加载现有的模型
     model_path = "best_model.pth"
     try:
         trainer.load_model(model_path)
         print(f"Successfully loaded model from {model_path}")
     except FileNotFoundError:
-        print(f"No existing model found at {model_path}. Starting training from scratch.")
+        print(
+            f"No existing model found at {model_path}. Starting training from scratch.")
 
     trainer.train_with_ray()
     trainer.save_model("best_model.pth")
