@@ -18,16 +18,17 @@ class TransformerEncoder(nn.Module):
 
 
 class DecisionNetwork(nn.Module):
-    def __init__(self, entity_input_dim, entity_num_heads, task_input_dim, task_num_heads, hidden_dim, num_layers, mlp_hidden_dim, output_dim):
+    def __init__(self, entity_input_dim, entity_num_heads, task_input_dim, task_num_heads, hidden_dim, num_layers, mlp_hidden_dim, max_entities, output_dim):
         super(DecisionNetwork, self).__init__()
-
         self.entity_encoder = TransformerEncoder(
             entity_input_dim, entity_num_heads, hidden_dim, num_layers)
         self.task_encoder = TransformerEncoder(
             task_input_dim, task_num_heads, hidden_dim, num_layers)
 
+        self.max_entities = max_entities
+
         self.mlp = nn.Sequential(
-            nn.Linear(entity_input_dim+task_input_dim, mlp_hidden_dim),
+            nn.Linear(hidden_dim * 2, mlp_hidden_dim),
             nn.ReLU(),
             nn.Dropout(p=0.3),
             nn.Linear(mlp_hidden_dim, output_dim)
@@ -42,8 +43,13 @@ class DecisionNetwork(nn.Module):
         encoded_tasks = self.task_encoder(tasks, task_mask).mean(dim=0)
 
         combined = torch.cat((encoded_entities, encoded_tasks), dim=1)
-        output = self.mlp(combined)
-        return F.softmax(output, dim=-1)
+
+        outputs = []
+        for _ in range(self.max_entities):
+            output = self.mlp(combined)
+            outputs.append(output)
+
+        return torch.stack(outputs, dim=1)
 
 
 class DecisionNetworkMultiHead(nn.Module):

@@ -72,7 +72,7 @@ class SampleGenerator(Dataset):
                 task_idx = task[2]
                 if not task_assigned[task_idx]:
                     task_assignments[i] = task_idx
-                    task_scores[i] = task[0] / (task[1] + 1e-5)  # 任务优先级 / 到达时间
+                    task_scores[i] = task[0] / (task[1] + 1e-5)  # 任务优先级 / 到达
                     task_assigned[task_idx] = True
                     break
 
@@ -104,6 +104,10 @@ class SampleGenerator(Dataset):
                 task_assignments[random_entity] = task_idx
                 task_scores[random_entity] = tasks[task_idx][0] / \
                     (1 + 1e-5)  # 随机选择实体分配任务
+
+        # 转换为 tensor，并将任务分配结果转换为整数类型
+        task_assignments = torch.tensor(task_assignments, dtype=torch.long)
+        task_scores = torch.tensor(task_scores, dtype=torch.float32)
 
         return task_assignments, task_scores
 

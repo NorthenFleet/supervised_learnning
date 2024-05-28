@@ -32,20 +32,22 @@ class Train:
         self.model.train()
         for epoch in range(self.num_epochs):
             total_loss = 0.0
-            for entities, tasks, entity_mask, task_mask, targets in self.dataloader:
-                entities, tasks, entity_mask, task_mask, targets = entities.to(self.device), tasks.to(
-                    self.device), entity_mask.to(self.device), task_mask.to(self.device), targets.to(self.device)
+            for entities, tasks, entity_mask, task_mask, (task_assignments, task_scores) in self.dataloader:
+                entities, tasks, entity_mask, task_mask = entities.to(self.device), tasks.to(
+                    self.device), entity_mask.to(self.device), task_mask.to(self.device)
+                task_assignments = task_assignments.to(self.device)
 
                 self.optimizer.zero_grad()
                 outputs = self.model(entities, tasks, entity_mask, task_mask)
 
-                # 将 targets 转换为与 outputs 匹配的形状
-                targets = targets.view(-1, 1).repeat(1,
-                                                     outputs.shape[1]).to(self.device)
+                # 确保outputs和task_assignments的维度匹配
+                assert outputs.shape[1] == task_assignments.shape[1], "输出和任务分配的维度不匹配"
 
+                # 计算每个平台对应任务的损失
                 loss = 0
                 for i in range(outputs.shape[1]):
-                    loss += self.criterion(outputs[:, i, :], targets[:, i])
+                    loss += self.criterion(outputs[:, i],
+                                           task_assignments[:, i])
 
                 loss.backward()
                 self.optimizer.step()
