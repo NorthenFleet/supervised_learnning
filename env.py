@@ -51,6 +51,8 @@ class SampleGenerator(Dataset):
         task_assignments = [-1] * num_entities
         task_scores = np.zeros(num_entities)
 
+        task_assigned = [False] * num_tasks
+
         for i, entity in enumerate(entities):
             entity_position = entity[:2]  # 平台位置 (x, y)
             entity_speed = entity[3]  # 平台速度
@@ -66,10 +68,32 @@ class SampleGenerator(Dataset):
             # 按任务优先级和到达时间排序
             task_distances.sort(key=lambda x: (x[0], x[1]))
 
-            # 选择最佳任务
-            best_task = task_distances[0]
-            task_assignments[i] = best_task[2]
-            task_scores[i] = best_task[0] / (best_task[1] + 1e-5)  # 任务优先级 / 到达时间
+            for task in task_distances:
+                task_idx = task[2]
+                if not task_assigned[task_idx]:
+                    task_assignments[i] = task_idx
+                    task_scores[i] = task[0] / (task[1] + 1e-5)  # 任务优先级 / 到达时间
+                    task_assigned[task_idx] = True
+                    break
+
+        # 确保所有任务至少被执行一次
+        unassigned_tasks = [idx for idx, assigned in enumerate(task_assigned) if not assigned]
+        for task_idx in unassigned_tasks:
+            best_entity = None
+            best_score = float('-inf')
+            for i, entity in enumerate(entities):
+                if task_assignments[i] == -1:
+                    entity_position = entity[:2]  # 平台位置 (x, y)
+                    entity_speed = entity[3]  # 平台速度
+                    task_position = tasks[task_idx][1:3]  # 任务位置 (x, y)
+                    distance = np.linalg.norm(entity_position - task_position)
+                    arrival_time = distance / entity_speed
+                    score = tasks[task_idx][0] / (arrival_time + 1e-5)  # 任务优先级 / 到达时间
+                    if score > best_score:
+                        best_score = score
+                        best_entity = i
+            task_assignments[best_entity] = task_idx
+            task_scores[best_entity] = best_score
 
         return task_assignments, task_scores
 
