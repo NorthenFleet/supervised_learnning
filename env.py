@@ -40,13 +40,13 @@ class SampleGenerator(Dataset):
         padded_entities, padded_tasks, entity_mask, task_mask = self.data_preprocessor.pad_and_mask(
             entities, tasks)
 
-        targets = self.__getreward__(entities, tasks)  # 计算最佳任务
+        targets = self.__getreward__(padded_entities, padded_tasks)  # 计算最佳任务
 
         return padded_entities, padded_tasks, entity_mask, task_mask, targets
 
     def __getreward__(self, entities, tasks):
-        num_entities = len(entities)
-        num_tasks = len(tasks)
+        num_entities = entities.shape[0]
+        num_tasks = tasks.shape[0]
 
         task_assignments = [-1] * num_entities
         task_scores = np.zeros(num_entities)

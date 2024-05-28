@@ -38,7 +38,15 @@ class Train:
 
                 self.optimizer.zero_grad()
                 outputs = self.model(entities, tasks, entity_mask, task_mask)
-                loss = self.criterion(outputs, targets)
+
+                # 将 targets 转换为与 outputs 匹配的形状
+                targets = targets.view(-1, 1).repeat(1,
+                                                     outputs.shape[1]).to(self.device)
+
+                loss = 0
+                for i in range(outputs.shape[1]):
+                    loss += self.criterion(outputs[:, i, :], targets[:, i])
+
                 loss.backward()
                 self.optimizer.step()
 
