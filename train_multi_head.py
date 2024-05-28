@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import ray
+from ray.air import session
 from ray import tune
 from ray.tune.schedulers import ASHAScheduler
 from env import SampleGenerator, DataPreprocessor
@@ -80,7 +81,7 @@ class TrainModel:
             },
             num_samples=10,  # 这是并行试验的数量
             scheduler=ASHAScheduler(metric="loss", mode="min"),
-            resources_per_trial={"cpu": 2, "gpu": 1}  # 确保正确分配 GPU 资源
+            resources_per_trial={"cpu": 2, "gpu": 2}  # 确保正确分配 GPU 资源
         )
 
         print("Best config: ", analysis.best_config)
