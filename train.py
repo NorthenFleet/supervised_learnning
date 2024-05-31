@@ -52,9 +52,11 @@ class Train:
         entity_mask = torch.stack(entity_mask)
         task_mask = torch.stack(task_mask)
 
-        # 修正 task_assignments 以确保每个元素都是整数张量
+        # 修正 task_assignments 以确保每个元素都是整数张量并过滤掉 -1
         task_assignments = [torch.tensor(
             ta, dtype=torch.long) for ta in task_assignments]
+        for ta in task_assignments:
+            ta[ta == -1] = 0  # 将所有 -1 转换为 0
         task_assignments = torch.stack(task_assignments)
         return entities, tasks, entity_mask, task_mask, task_assignments
 
@@ -76,11 +78,13 @@ class Train:
                 assert outputs.shape[:-
                                      1] == task_assignments.shape, "输出和任务分配的维度不匹配"
 
+                # 过滤掉无效的任务分配（0，因为我们之前将 -1 转换为 0）
+                valid_mask = task_assignments != 0
+                valid_task_assignments = task_assignments[valid_mask]
+                valid_outputs = outputs[valid_mask]
+
                 # 计算每个平台对应任务的损失
-                loss = 0
-                for i in range(outputs.shape[1]):
-                    loss += self.criterion(outputs[:, i],
-                                           task_assignments[:, i])
+                loss = self.criterion(valid_outputs, valid_task_assignments)
 
                 loss.backward()
                 self.optimizer.step()

@@ -84,7 +84,7 @@ class SampleGenerator(Dataset):
         task_assignments = torch.tensor(task_assignments, dtype=torch.long)
         task_scores = torch.tensor(task_scores, dtype=torch.float32)
 
-        return task_assignments, task_scores
+        return task_assignments
 
 
 class DataPreprocessor:
