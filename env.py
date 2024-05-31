@@ -37,6 +37,8 @@ class SampleGenerator(Dataset):
             task_type = np.random.randint(0, 3)
             tasks[j] = [priority, x, y, task_type]
 
+        tasks = tasks[tasks[:, 0].argsort()[::-1]]
+
         padded_entities, padded_tasks, entity_mask, task_mask = self.data_preprocessor.pad_and_mask(
             entities, tasks)
 
