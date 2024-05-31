@@ -1,12 +1,14 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.optim.lr_scheduler import StepLR
 from torch.utils.tensorboard import SummaryWriter
 from env import SampleGenerator, DataPreprocessor
 from network import DecisionNetwork
 from torch.utils.data import DataLoader
+from torch.optim.lr_scheduler import StepLR
+import torch.optim as optim
 from model_manager import ModelManager
+
 
 class Train:
     def __init__(self, env_config, network_config, training_config):
@@ -26,10 +28,8 @@ class Train:
         self.criterion = nn.CrossEntropyLoss()
         self.optimizer = optim.Adam(
             self.model.parameters(), lr=training_config["lr"])
-        self.scheduler = StepLR(self.optimizer, step_size=10, gamma=0.1)
+        self.scheduler = StepLR(self.optimizer, step_size=10, gamma=0.1)  # 每10个epoch学习率减少为原来的0.1倍
         self.num_epochs = training_config["num_epochs"]
-        
-        # Initialize TensorBoard writer
         self.writer = SummaryWriter(log_dir=training_config.get("log_dir", "./runs"))
 
     def train(self):
@@ -40,25 +40,23 @@ class Train:
                 entities, tasks, entity_mask, task_mask = entities.to(self.device), tasks.to(
                     self.device), entity_mask.to(self.device), task_mask.to(self.device)
                 task_assignments = task_assignments.to(self.device)
-
                 self.optimizer.zero_grad()
                 outputs = self.model(entities, tasks, entity_mask, task_mask)
 
-                # Ensure outputs and task_assignments dimensions match
-                assert outputs.shape[0] == task_assignments.shape[0], "Output and task assignments dimension mismatch"
+                # 确保outputs和task_assignments的维度匹配
+                assert outputs.shape[0] == task_assignments.shape[0], "输出和任务分配的维度不匹配"
 
-                # Filter out invalid task assignments (-1)
+                # 过滤掉无效的任务分配（-1）
                 valid_mask = task_assignments != -1
                 valid_task_assignments = task_assignments[valid_mask]
                 valid_outputs = outputs[valid_mask]
 
-                # Calculate the loss for each platform-task assignment
+                # 计算每个平台对应任务的损失
                 loss = self.criterion(valid_outputs, valid_task_assignments)
 
                 loss.backward()
                 self.optimizer.step()
 
-                total_loss += loss
                 total_loss += loss.item()
 
             avg_loss = total_loss / len(self.dataloader)
@@ -91,8 +89,8 @@ if __name__ == "__main__":
     env_config = {
         "max_entities": 10,
         "max_tasks": 5,
-        "entity_dim": 6,  # Platform position (x, y), range, speed, detection range, endurance
-        "task_dim": 4    # Task priority, task position (x, y), task type
+        "entity_dim": 6,  # 平台位置 (x, y), 航程, 速度, 探测距离, 可持续时长
+        "task_dim": 4    # 任务优先级, 任务位置 (x, y), 任务类型
     }
 
     network_config = {
