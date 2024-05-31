@@ -87,6 +87,11 @@ class Train:
                 loss = self.criterion(valid_outputs, valid_task_assignments)
 
                 loss.backward()
+
+                # 梯度裁剪
+                torch.nn.utils.clip_grad_norm_(
+                    self.model.parameters(), max_norm=1.0)
+
                 self.optimizer.step()
 
                 total_loss += loss.item()
