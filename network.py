@@ -42,14 +42,13 @@ class DecisionNetwork(nn.Module):
             entities, entity_mask).mean(dim=0)
         encoded_tasks = self.task_encoder(tasks, task_mask).mean(dim=0)
 
-        combined = torch.cat((encoded_entities, encoded_tasks), dim=1)
-
-        outputs = []    
-        for _ in range(self.max_entities):
+        combined_outputs = []
+        for i in range(self.max_entities):
+            combined = torch.cat((encoded_entities[i], encoded_tasks), dim=0)
             output = self.mlp(combined)
-            outputs.append(output)
+            combined_outputs.append(output)
 
-        return torch.stack(outputs, dim=1)
+        return torch.stack(combined_outputs, dim=1)
 
 
 class DecisionNetworkMultiHead(nn.Module):
