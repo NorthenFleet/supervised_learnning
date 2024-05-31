@@ -32,7 +32,7 @@ class Train:
         self.num_epochs = training_config["num_epochs"]
         self.logger = TensorBoardLogger()
 
-        # Log the model graph (structure) to TensorBoard
+        # Log the model graph (structure) to TensorBoard outside of training loop
         dummy_entities = torch.zeros(
             (training_config["batch_size"], env_config["max_entities"], env_config["entity_dim"])).to(self.device)
         dummy_tasks = torch.zeros(
@@ -91,8 +91,6 @@ class Train:
             self.logger.log_scalar('Loss/train', avg_loss, epoch)
             print(f"Epoch {epoch + 1}/{self.num_epochs}, Loss: {avg_loss}")
 
-        self.logger.close()
-
     def save_model(self, path):
         ModelManager.save_model(self.model, path)
 
@@ -125,5 +123,15 @@ if __name__ == "__main__":
     }
 
     trainer = Train(env_config, network_config, training_config)
+
+    # 加载现有的模型
+    model_path = "best_model.pth"
+    try:
+        trainer.load_model(model_path)
+        print(f"Successfully loaded model from {model_path}")
+    except FileNotFoundError:
+        print(
+            f"No existing model found at {model_path}. Starting training from scratch.")
+
     trainer.train()
     trainer.save_model("best_model.pth")
