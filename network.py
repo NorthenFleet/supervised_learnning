@@ -44,7 +44,7 @@ class DecisionNetwork(nn.Module):
 
         combined = torch.cat((encoded_entities, encoded_tasks), dim=1)
 
-        outputs = []
+        outputs = []    
         for _ in range(self.max_entities):
             output = self.mlp(combined)
             outputs.append(output)
