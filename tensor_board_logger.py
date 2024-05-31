@@ -1,5 +1,4 @@
 from torch.utils.tensorboard import SummaryWriter
-import torch
 
 
 class TensorBoardLogger:

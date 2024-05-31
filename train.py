@@ -6,7 +6,7 @@ from torch.optim.lr_scheduler import StepLR
 from env import SampleGenerator, DataPreprocessor
 from network import DecisionNetworkMultiHead
 from model_manager import ModelManager
-from tensorboard import TensorBoardLogger
+from tensor_board_logger import TensorBoardLogger
 
 
 class Train:
