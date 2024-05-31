@@ -52,39 +52,41 @@ class DecisionNetwork(nn.Module):
 
 
 class DecisionNetworkMultiHead(nn.Module):
-    def __init__(self, entity_input_dim, entity_num_heads, task_input_dim, task_num_heads, hidden_dim, num_layers, mlp_hidden_dim, max_entities, output_dim):
+    def __init__(self, entity_input_dim, task_input_dim, model_dim, num_heads, hidden_dim, num_layers, mlp_hidden_dim, max_entities, output_dim):
         super(DecisionNetworkMultiHead, self).__init__()
-        self.entity_input_dim = entity_input_dim
+        self.entity_embedding = nn.Linear(entity_input_dim, model_dim)
+        self.task_embedding = nn.Linear(task_input_dim, model_dim)
         self.entity_encoder = TransformerEncoder(
-            entity_input_dim, entity_num_heads, hidden_dim, num_layers)
+            model_dim, num_heads, hidden_dim, num_layers)
         self.task_encoder = TransformerEncoder(
-            task_input_dim, task_num_heads, hidden_dim, num_layers)
+            model_dim, num_heads, hidden_dim, num_layers)
 
-        # 多头输出，每个头部对应一个平台的任务分配
+        self.combination_layer = nn.Linear(2 * model_dim, model_dim)
+
         self.heads = nn.ModuleList([
             nn.Sequential(
-                nn.Linear(entity_input_dim+task_input_dim, mlp_hidden_dim),
+                nn.Linear(model_dim, mlp_hidden_dim),
                 nn.ReLU(),
                 nn.Dropout(p=0.3),
                 nn.Linear(mlp_hidden_dim, output_dim),
-                nn.Softmax(dim=-1)  # 加入 softmax 输出任务编号
+                nn.Softmax(dim=-1)
             ) for _ in range(max_entities)
         ])
 
     def forward(self, entities, tasks, entity_mask, task_mask):
-        entities = entities.permute(1, 0, 2)
-        tasks = tasks.permute(1, 0, 2)
+        entities = self.entity_embedding(entities.permute(1, 0, 2))
+        tasks = self.task_embedding(tasks.permute(1, 0, 2))
 
         encoded_entities = self.entity_encoder(
             entities, entity_mask).mean(dim=0)
         encoded_tasks = self.task_encoder(tasks, task_mask).mean(dim=0)
 
+        combined_output = torch.cat((encoded_entities, encoded_tasks), dim=-1)
+        combined_output = F.relu(self.combination_layer(combined_output))
+
         outputs = []
-        for i in range(self.entity_input_dim):  # 遍历所有实体
-            entity_expanded = encoded_entities[i].unsqueeze(
-                0).expand(encoded_tasks.size(0), -1)
-            combined = torch.cat((entity_expanded, encoded_tasks), dim=-1)
-            output = self.heads[i](combined)
+        for i in range(len(self.heads)):
+            output = self.heads[i](combined_output)
             outputs.append(output)
 
-        return outputs
+        return torch.stack(outputs, dim=1)
