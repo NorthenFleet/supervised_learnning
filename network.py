@@ -54,7 +54,7 @@ class DecisionNetwork(nn.Module):
 class DecisionNetworkMultiHead(nn.Module):
     def __init__(self, entity_input_dim, entity_num_heads, task_input_dim, task_num_heads, hidden_dim, num_layers, mlp_hidden_dim, max_entities, output_dim):
         super(DecisionNetworkMultiHead, self).__init__()
-        self.max_entities = max_entities
+
         self.entity_encoder = TransformerEncoder(
             entity_input_dim, entity_num_heads, hidden_dim, num_layers)
         self.task_encoder = TransformerEncoder(
@@ -63,11 +63,11 @@ class DecisionNetworkMultiHead(nn.Module):
         # 多头输出，每个头部对应一个平台的任务分配
         self.heads = nn.ModuleList([
             nn.Sequential(
-                nn.Linear(entity_input_dim + task_input_dim, mlp_hidden_dim),
+                nn.Linear(hidden_dim * 2, mlp_hidden_dim),
                 nn.ReLU(),
                 nn.Dropout(p=0.3),
                 nn.Linear(mlp_hidden_dim, output_dim),
-                nn.Softmax(dim=-1)  # 输出任务编号的概率分布
+                nn.Softmax(dim=-1)  # 加入 softmax 输出任务编号
             ) for _ in range(max_entities)
         ])
 
@@ -80,11 +80,10 @@ class DecisionNetworkMultiHead(nn.Module):
         encoded_tasks = self.task_encoder(tasks, task_mask).mean(dim=0)
 
         outputs = []
-        for i in range(self.max_entities):
-            # expand encoded_entities[i] to match the first dimension of encoded_tasks
-            combined = torch.cat((encoded_entities[i].unsqueeze(0).expand(
-                encoded_tasks.size(0), -1), encoded_tasks), dim=-1)
+        for i in range(len(encoded_entities)):
+            combined = torch.cat((encoded_entities[i].unsqueeze(
+                0).expand(tasks.size(0), -1), encoded_tasks), dim=-1)
             output = self.heads[i](combined)
             outputs.append(output)
 
-        return torch.stack(outputs, dim=1)
+        return outputs

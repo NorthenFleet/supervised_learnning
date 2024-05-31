@@ -6,7 +6,7 @@ from torch.optim.lr_scheduler import StepLR
 from env import SampleGenerator, DataPreprocessor
 from network import DecisionNetworkMultiHead
 from model_manager import ModelManager
-from tensor_board_logger import TensorBoardLogger
+from tensorboard_logger import TensorBoardLogger
 
 
 class Train:
@@ -16,7 +16,7 @@ class Train:
         self.dataset = SampleGenerator(
             training_config["num_samples"], self.data_preprocessor)
         self.dataloader = DataLoader(
-            self.dataset, batch_size=training_config["batch_size"], shuffle=True)
+            self.dataset, batch_size=training_config["batch_size"], shuffle=True, collate_fn=self.collate_fn)
         self.device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu")
 
@@ -44,6 +44,16 @@ class Train:
 
         self.logger.log_graph(
             self.model, (dummy_entities, dummy_tasks, dummy_entity_mask, dummy_task_mask))
+
+    def collate_fn(self, batch):
+        entities, tasks, entity_mask, task_mask, task_assignments = zip(*batch)
+        entities = torch.stack(entities)
+        tasks = torch.stack(tasks)
+        entity_mask = torch.stack(entity_mask)
+        task_mask = torch.stack(task_mask)
+        task_assignments = torch.stack(
+            [torch.tensor(ta, dtype=torch.long) for ta in task_assignments])
+        return entities, tasks, entity_mask, task_mask, task_assignments
 
     def train(self):
         self.model.train()
@@ -108,7 +118,7 @@ if __name__ == "__main__":
     }
 
     training_config = {
-        "num_samples": 100000,
+        "num_samples": 1000,
         "batch_size": 32,
         "lr": 0.001,
         "num_epochs": 50
