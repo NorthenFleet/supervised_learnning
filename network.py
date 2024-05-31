@@ -5,7 +5,6 @@ import torch.nn.functional as F
 
 class TransformerEncoder(nn.Module):
     def __init__(self, input_dim, num_heads, hidden_dim, num_layers):
-        assert input_dim % num_heads == 0, "input_dim must be divisible by num_heads"
         super(TransformerEncoder, self).__init__()
         self.encoder_layer = nn.TransformerEncoderLayer(
             d_model=input_dim, nhead=num_heads, dim_feedforward=hidden_dim)
@@ -69,7 +68,8 @@ class DecisionNetworkMultiHead(nn.Module):
                 nn.Linear(hidden_dim * 2, mlp_hidden_dim),
                 nn.ReLU(),
                 nn.Dropout(p=0.3),
-                nn.Linear(mlp_hidden_dim, output_dim)
+                nn.Linear(mlp_hidden_dim, output_dim),
+                nn.Softmax(dim=-1)  # 确保输出为任务编号的概率分布
             ) for _ in range(max_entities)
         ])
 
