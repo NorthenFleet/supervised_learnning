@@ -8,6 +8,7 @@ from env import SampleGenerator, DataPreprocessor
 from network import DecisionNetwork
 from torch.utils.data import DataLoader
 from model_manager import ModelManager
+from torch.optim.lr_scheduler import StepLR
 
 
 class TrainModel:
@@ -32,6 +33,7 @@ class TrainModel:
         self.criterion = nn.CrossEntropyLoss()
         self.optimizer = torch.optim.Adam(
             self.model.parameters(), lr=training_config["lr"])
+        self.scheduler = StepLR(self.optimizer, step_size=10, gamma=0.1)
 
     def train(self):
         for epoch in range(self.training_config["num_epochs"]):
@@ -61,6 +63,7 @@ class TrainModel:
 
                 total_loss += loss.item()
 
+            self.scheduler.step()
             session.report({"loss": total_loss / len(self.dataloader)})
             print(
                 f"Epoch {epoch + 1}/{self.training_config['num_epochs']}, Loss: {total_loss / len(self.dataloader)}")
@@ -81,7 +84,7 @@ class TrainModel:
             },
             num_samples=10,  # 这是并行试验的数量
             scheduler=ASHAScheduler(metric="loss", mode="min"),
-            resources_per_trial={"cpu": 2, "gpu": 2}  # 确保正确分配 GPU 资源
+            resources_per_trial={"cpu": 0.5, "gpu": 0.5}  # 确保正确分配 GPU 资源
         )
 
         print("Best config: ", analysis.best_config)
