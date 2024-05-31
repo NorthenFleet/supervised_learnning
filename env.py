@@ -54,7 +54,6 @@ class SampleGenerator(Dataset):
 
         entity_assigned = [False] * num_entities
 
-        
         for idx, task in enumerate(tasks):
             task_priority = task[0]
             task_position = task[1:3]  # 任务位置 (x, y)
@@ -76,9 +75,10 @@ class SampleGenerator(Dataset):
             task_distances.sort(key=lambda x: (x[0], x[1]))
             if task_distances != []:
                 entity_idx = task_distances[0][2]
-                task_scores[entity_idx] = entity[0] / (entity[1] + 1e-5)  # 任务优先级 / 到达
+                task_scores[entity_idx] = entity[0] / \
+                    (entity[1] + 1e-5)  # 任务优先级 / 到达
                 entity_assigned[entity_idx] = True
-                task_assignments[entity_idx] = idx                
+                task_assignments[entity_idx] = idx
 
         # 转换为 tensor，并将任务分配结果转换为整数类型
         task_assignments = torch.tensor(task_assignments, dtype=torch.long)
