@@ -4,7 +4,7 @@
 *.pth       # 忽略所有 .pth 文件
 
 /__pycache__/          # 忽略 dist 目录
-
+/runs/
 
 
 
