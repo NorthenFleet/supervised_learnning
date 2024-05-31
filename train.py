@@ -1,10 +1,10 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch.optim.lr_scheduler import StepLR
 from env import SampleGenerator, DataPreprocessor
 from network import DecisionNetwork
 from torch.utils.data import DataLoader
-import torch.optim as optim
 from model_manager import ModelManager
 
 
@@ -26,6 +26,7 @@ class Train:
         self.criterion = nn.CrossEntropyLoss()
         self.optimizer = optim.Adam(
             self.model.parameters(), lr=training_config["lr"])
+        self.scheduler = StepLR(self.optimizer, step_size=10, gamma=0.1)  # 每10个epoch学习率减少为原来的0.1倍
         self.num_epochs = training_config["num_epochs"]
 
     def train(self):
@@ -56,8 +57,10 @@ class Train:
 
                 total_loss += loss.item()
 
+            self.scheduler.step()  # 更新学习率
+
             print(
-                f"Epoch {epoch + 1}/{self.num_epochs}, Loss: {total_loss / len(self.dataloader)}")
+                f"Epoch {epoch + 1}/{self.num_epochs}, Loss: {total_loss / len(self.dataloader)}, LR: {self.scheduler.get_last_lr()}")
 
     def save_model(self, path):
         ModelManager.save_model(self.model, path)
@@ -86,7 +89,7 @@ if __name__ == "__main__":
     training_config = {
         "num_samples": 1000,
         "batch_size": 32,
-        "num_epochs": 10,
+        "num_epochs": 50,
         "lr": 0.001
     }
 
