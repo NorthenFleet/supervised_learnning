@@ -2,11 +2,11 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.optim.lr_scheduler import StepLR
+from torch.utils.tensorboard import SummaryWriter
 from env import SampleGenerator, DataPreprocessor
 from network import DecisionNetwork
 from torch.utils.data import DataLoader
 from model_manager import ModelManager
-
 
 class Train:
     def __init__(self, env_config, network_config, training_config):
@@ -26,8 +26,11 @@ class Train:
         self.criterion = nn.CrossEntropyLoss()
         self.optimizer = optim.Adam(
             self.model.parameters(), lr=training_config["lr"])
-        self.scheduler = StepLR(self.optimizer, step_size=10, gamma=0.1)  # 每10个epoch学习率减少为原来的0.1倍
+        self.scheduler = StepLR(self.optimizer, step_size=10, gamma=0.1)
         self.num_epochs = training_config["num_epochs"]
+        
+        # Initialize TensorBoard writer
+        self.writer = SummaryWriter(log_dir=training_config.get("log_dir", "./runs"))
 
     def train(self):
         self.model.train()
@@ -41,26 +44,41 @@ class Train:
                 self.optimizer.zero_grad()
                 outputs = self.model(entities, tasks, entity_mask, task_mask)
 
-                # 确保outputs和task_assignments的维度匹配
-                assert outputs.shape[0] == task_assignments.shape[0], "输出和任务分配的维度不匹配"
+                # Ensure outputs and task_assignments dimensions match
+                assert outputs.shape[0] == task_assignments.shape[0], "Output and task assignments dimension mismatch"
 
-                # 过滤掉无效的任务分配（-1）
+                # Filter out invalid task assignments (-1)
                 valid_mask = task_assignments != -1
                 valid_task_assignments = task_assignments[valid_mask]
                 valid_outputs = outputs[valid_mask]
 
-                # 计算每个平台对应任务的损失
+                # Calculate the loss for each platform-task assignment
                 loss = self.criterion(valid_outputs, valid_task_assignments)
 
                 loss.backward()
                 self.optimizer.step()
 
+                total_loss += loss
                 total_loss += loss.item()
 
-            self.scheduler.step()  # 更新学习率
+            avg_loss = total_loss / len(self.dataloader)
+            self.scheduler.step()
+
+            # Log the average loss to TensorBoard
+            self.writer.add_scalar('Loss/train', avg_loss, epoch)
 
             print(
-                f"Epoch {epoch + 1}/{self.num_epochs}, Loss: {total_loss / len(self.dataloader)}, LR: {self.scheduler.get_last_lr()}")
+                f"Epoch {epoch + 1}/{self.num_epochs}, Loss: {avg_loss}")
+
+        # Log the model graph (structure) to TensorBoard
+        dummy_entities = torch.zeros((self.training_config["batch_size"], self.env_config["max_entities"], self.env_config["entity_dim"])).to(self.device)
+        dummy_tasks = torch.zeros((self.training_config["batch_size"], self.env_config["max_tasks"], self.env_config["task_dim"])).to(self.device)
+        dummy_entity_mask = torch.ones((self.training_config["batch_size"], self.env_config["max_entities"])).to(self.device)
+        dummy_task_mask = torch.ones((self.training_config["batch_size"], self.env_config["max_tasks"])).to(self.device)
+
+        self.writer.add_graph(self.model, (dummy_entities, dummy_tasks, dummy_entity_mask, dummy_task_mask))
+
+        self.writer.close()
 
     def save_model(self, path):
         ModelManager.save_model(self.model, path)
@@ -73,8 +91,8 @@ if __name__ == "__main__":
     env_config = {
         "max_entities": 10,
         "max_tasks": 5,
-        "entity_dim": 6,  # 平台位置 (x, y), 航程, 速度, 探测距离, 可持续时长
-        "task_dim": 4    # 任务优先级, 任务位置 (x, y), 任务类型
+        "entity_dim": 6,  # Platform position (x, y), range, speed, detection range, endurance
+        "task_dim": 4    # Task priority, task position (x, y), task type
     }
 
     network_config = {
@@ -90,7 +108,8 @@ if __name__ == "__main__":
         "num_samples": 1000,
         "batch_size": 32,
         "num_epochs": 50,
-        "lr": 0.001
+        "lr": 0.001,
+        "log_dir": "./runs"
     }
 
     trainer = Train(env_config, network_config, training_config)
