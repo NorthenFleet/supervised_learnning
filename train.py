@@ -51,8 +51,11 @@ class Train:
         tasks = torch.stack(tasks)
         entity_mask = torch.stack(entity_mask)
         task_mask = torch.stack(task_mask)
-        task_assignments = torch.stack(
-            [torch.tensor(ta, dtype=torch.long) for ta in task_assignments])
+
+        # 修正 task_assignments 以确保每个元素都是整数张量
+        task_assignments = [torch.tensor(
+            ta, dtype=torch.long) for ta in task_assignments]
+        task_assignments = torch.stack(task_assignments)
         return entities, tasks, entity_mask, task_mask, task_assignments
 
     def train(self):
