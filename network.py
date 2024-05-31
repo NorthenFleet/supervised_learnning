@@ -80,9 +80,10 @@ class DecisionNetworkMultiHead(nn.Module):
         encoded_tasks = self.task_encoder(tasks, task_mask).mean(dim=0)
 
         outputs = []
-        for i in range(len(encoded_entities)):
-            combined = torch.cat((encoded_entities[i].unsqueeze(
-                0).expand(tasks.size(0), -1), encoded_tasks), dim=-1)
+        for i in range(encoded_entities.size(0)):  # 遍历所有实体
+            entity_expanded = encoded_entities[i].unsqueeze(
+                0).expand(encoded_tasks.size(0), -1)
+            combined = torch.cat((entity_expanded, encoded_tasks), dim=-1)
             output = self.heads[i](combined)
             outputs.append(output)
 
