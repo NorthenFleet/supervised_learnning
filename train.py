@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
-from torch.optim.lr_scheduler import StepLR
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 from env import SampleGenerator, DataPreprocessor
 from network import DecisionNetworkMultiHead
 from model_manager import ModelManager
@@ -17,6 +17,12 @@ class Train:
             training_config["num_samples"], self.data_preprocessor)
         self.dataloader = DataLoader(
             self.dataset, batch_size=training_config["batch_size"], shuffle=True, collate_fn=self.collate_fn)
+
+        self.val_dataset = SampleGenerator(
+            training_config["num_samples"] // 10, self.data_preprocessor)  # 假设验证集为训练集的10%
+        self.val_dataloader = DataLoader(
+            self.val_dataset, batch_size=training_config["batch_size"], shuffle=False, collate_fn=self.collate_fn)
+
         self.device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu")
 
@@ -27,9 +33,11 @@ class Train:
         self.criterion = nn.CrossEntropyLoss()
         self.optimizer = optim.Adam(
             self.model.parameters(), lr=training_config["lr"])
-        self.scheduler = StepLR(self.optimizer, step_size=10, gamma=0.1)
+        self.scheduler = ReduceLROnPlateau(
+            self.optimizer, mode='min', factor=0.1, patience=5)
 
         self.num_epochs = training_config["num_epochs"]
+        self.patience = training_config.get("patience", 10)  # 默认早停耐心值为10个epoch
         self.logger = TensorBoardLogger()
 
         # Log the model graph (structure) to TensorBoard outside of training loop
@@ -60,10 +68,44 @@ class Train:
         task_assignments = torch.stack(task_assignments)
         return entities, tasks, entity_mask, task_mask, task_assignments
 
+    def validate(self):
+        self.model.eval()
+        total_val_loss = 0.0
+        with torch.no_grad():
+            for entities, tasks, entity_mask, task_mask, targets in self.val_dataloader:
+                entities, tasks, entity_mask, task_mask, targets = entities.to(self.device), tasks.to(
+                    self.device), entity_mask.to(self.device), task_mask.to(self.device), targets.to(self.device)
+
+                outputs = self.model(
+                    entities, tasks, entity_mask, task_mask)
+
+                loss = 0
+                for i, output in enumerate(outputs):
+                    loss += self.criterion(output, targets[:, i])
+
+                total_val_loss += loss.item()
+
+        avg_val_loss = total_val_loss / len(self.val_dataloader)
+        return avg_val_loss
+
+    def early_stopping_check(self, avg_val_loss, best_val_loss, patience_counter, path):
+        if avg_val_loss < best_val_loss:
+            best_val_loss = avg_val_loss
+            patience_counter = 0
+            self.save_model(path)
+        else:
+            patience_counter += 1
+            if patience_counter >= self.patience:
+                print("Early stopping triggered")
+                return best_val_loss, patience_counter, True
+        return best_val_loss, patience_counter, False
+
     def train(self):
-        self.model.train()
+        best_val_loss = float('inf')
+        patience_counter = 0
 
         for epoch in range(self.num_epochs):
+            self.model.train()
             total_loss = 0.0
             for entities, tasks, entity_mask, task_mask, task_assignments in self.dataloader:
                 entities, tasks, entity_mask, task_mask = entities.to(self.device), tasks.to(
@@ -96,12 +138,26 @@ class Train:
 
                 total_loss += loss.item()
 
-            self.scheduler.step()
-            avg_loss = total_loss / len(self.dataloader)
+            avg_train_loss = total_loss / len(self.dataloader)
 
-            # Log the average loss to TensorBoard
-            self.logger.log_scalar('Loss/train', avg_loss, epoch)
-            print(f"Epoch {epoch + 1}/{self.num_epochs}, Loss: {avg_loss}")
+            # 验证集评估
+            avg_val_loss = self.validate()
+
+            # 调整学习率
+            self.scheduler.step(avg_val_loss)
+
+            # Log the average losses to TensorBoard
+            self.logger.log_scalar('Loss/train', avg_train_loss, epoch)
+            self.logger.log_scalar('Loss/val', avg_val_loss, epoch)
+
+            print(
+                f"Epoch {epoch + 1}/{self.num_epochs}, Train Loss: {avg_train_loss}, Val Loss: {avg_val_loss}")
+
+            # 早停逻辑
+            best_val_loss, patience_counter, stop = self.early_stopping_check(
+                avg_val_loss, best_val_loss, patience_counter, "best_model.pth")
+            if stop:
+                break
 
     def save_model(self, path):
         ModelManager.save_model(self.model, path)
@@ -131,7 +187,8 @@ if __name__ == "__main__":
         "num_samples": 1000,
         "batch_size": 32,
         "lr": 0.001,
-        "num_epochs": 50
+        "num_epochs": 50,
+        "patience": 10
     }
 
     trainer = Train(env_config, network_config, training_config)
