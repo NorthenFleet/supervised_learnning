@@ -12,6 +12,8 @@ from model_manager import ModelManager
 
 class Train:
     def __init__(self, env_config, network_config, training_config):
+        self.env_config = env_config
+        self.training_config = training_config
         self.data_preprocessor = DataPreprocessor(
             env_config["max_entities"], env_config["max_tasks"], env_config["entity_dim"], env_config["task_dim"])
         self.dataset = SampleGenerator(
@@ -28,9 +30,11 @@ class Train:
         self.criterion = nn.CrossEntropyLoss()
         self.optimizer = optim.Adam(
             self.model.parameters(), lr=training_config["lr"])
-        self.scheduler = StepLR(self.optimizer, step_size=10, gamma=0.1)  # 每10个epoch学习率减少为原来的0.1倍
+        # 每10个epoch学习率减少为原来的0.1倍
+        self.scheduler = StepLR(self.optimizer, step_size=10, gamma=0.1)
         self.num_epochs = training_config["num_epochs"]
-        self.writer = SummaryWriter(log_dir=training_config.get("log_dir", "./runs"))
+        self.writer = SummaryWriter(
+            log_dir=training_config.get("log_dir", "./runs"))
 
     def train(self):
         self.model.train()
@@ -69,12 +73,17 @@ class Train:
                 f"Epoch {epoch + 1}/{self.num_epochs}, Loss: {avg_loss}")
 
         # Log the model graph (structure) to TensorBoard
-        dummy_entities = torch.zeros((self.training_config["batch_size"], self.env_config["max_entities"], self.env_config["entity_dim"])).to(self.device)
-        dummy_tasks = torch.zeros((self.training_config["batch_size"], self.env_config["max_tasks"], self.env_config["task_dim"])).to(self.device)
-        dummy_entity_mask = torch.ones((self.training_config["batch_size"], self.env_config["max_entities"])).to(self.device)
-        dummy_task_mask = torch.ones((self.training_config["batch_size"], self.env_config["max_tasks"])).to(self.device)
+        dummy_entities = torch.zeros(
+            (self.training_config["batch_size"], self.env_config["max_entities"], self.env_config["entity_dim"])).to(self.device)
+        dummy_tasks = torch.zeros(
+            (self.training_config["batch_size"], self.env_config["max_tasks"], self.env_config["task_dim"])).to(self.device)
+        dummy_entity_mask = torch.ones(
+            (self.training_config["batch_size"], self.env_config["max_entities"])).to(self.device)
+        dummy_task_mask = torch.ones(
+            (self.training_config["batch_size"], self.env_config["max_tasks"])).to(self.device)
 
-        self.writer.add_graph(self.model, (dummy_entities, dummy_tasks, dummy_entity_mask, dummy_task_mask))
+        self.writer.add_graph(
+            self.model, (dummy_entities, dummy_tasks, dummy_entity_mask, dummy_task_mask))
 
         self.writer.close()
 
@@ -111,5 +120,13 @@ if __name__ == "__main__":
     }
 
     trainer = Train(env_config, network_config, training_config)
+    # 加载现有的模型
+    model_path = "best_model.pth"
+    try:
+        trainer.load_model(model_path)
+        print(f"Successfully loaded model from {model_path}")
+    except FileNotFoundError:
+        print(
+            f"No existing model found at {model_path}. Starting training from scratch.")
     trainer.train()
     trainer.save_model("best_model.pth")
