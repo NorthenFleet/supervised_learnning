@@ -47,15 +47,12 @@ class TrainModel:
                 self.optimizer.zero_grad()
                 outputs = self.model(entities, tasks, entity_mask, task_mask)
 
-                # 确保outputs和task_assignments的维度匹配
                 assert outputs.shape[0] == task_assignments.shape[0], "输出和任务分配的维度不匹配"
 
-                # 过滤掉无效的任务分配（-1）
                 valid_mask = task_assignments != -1
                 valid_task_assignments = task_assignments[valid_mask]
                 valid_outputs = outputs[valid_mask]
 
-                # 计算每个平台对应任务的损失
                 loss = self.criterion(valid_outputs, valid_task_assignments)
 
                 loss.backward()
@@ -63,10 +60,12 @@ class TrainModel:
 
                 total_loss += loss.item()
 
+            avg_loss = total_loss / len(self.dataloader)
             self.scheduler.step()
-            session.report({"loss": total_loss / len(self.dataloader)})
+
+            session.report({"loss": avg_loss})
             print(
-                f"Epoch {epoch + 1}/{self.training_config['num_epochs']}, Loss: {total_loss / len(self.dataloader)}")
+                f"Epoch {epoch + 1}/{self.training_config['num_epochs']}, Loss: {avg_loss}")
 
     def save_model(self, path):
         ModelManager.save_model(self.model, path)
@@ -82,9 +81,9 @@ class TrainModel:
                 "network_config": self.network_config,
                 "training_config": self.training_config
             },
-            num_samples=10,  # 这是并行试验的数量
+            num_samples=10,
             scheduler=ASHAScheduler(metric="loss", mode="min"),
-            resources_per_trial={"cpu": 0.5, "gpu": 0.5}  # 确保正确分配 GPU 资源
+            resources_per_trial={"cpu": 0.2, "gpu": 0.2}
         )
 
         print("Best config: ", analysis.best_config)
@@ -100,8 +99,8 @@ if __name__ == "__main__":
     env_config = {
         "max_entities": 10,
         "max_tasks": 5,
-        "entity_dim": 6,  # 平台位置 (x, y), 航程, 速度, 探测距离, 可持续时长
-        "task_dim": 4    # 任务优先级, 任务位置 (x, y), 任务类型
+        "entity_dim": 6,
+        "task_dim": 4
     }
 
     network_config = {
@@ -110,7 +109,7 @@ if __name__ == "__main__":
         "hidden_dim": 64,
         "num_layers": 2,
         "mlp_hidden_dim": 128,
-        "output_dim": 5     # max_tasks
+        "output_dim": 5
     }
 
     training_config = {
@@ -120,10 +119,11 @@ if __name__ == "__main__":
         "num_epochs": 50
     }
 
-    ray.init(num_cpus=2, num_gpus=2)  # 确保 Ray 正确识别并使用 GPU 资源
+    ray.init(num_cpus=2, num_gpus=2)  # 在服务器上使用
+    # ray.init()  # 在 Mac M1 芯片上使用
+
     trainer = TrainModel(env_config, network_config, training_config)
-          
-    # 加载现有的模型
+
     model_path = "best_model.pth"
     try:
         trainer.load_model(model_path)
