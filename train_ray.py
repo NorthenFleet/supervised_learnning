@@ -21,7 +21,8 @@ class TrainModel:
         # 将数据集分为训练集和验证集
         train_size = int(0.8 * len(self.dataset))
         val_size = len(self.dataset) - train_size
-        self.train_dataset, self.val_dataset = random_split(self.dataset, [train_size, val_size])
+        self.train_dataset, self.val_dataset = random_split(
+            self.dataset, [train_size, val_size])
 
         self.train_dataloader = DataLoader(
             self.train_dataset, batch_size=config["batch_size"], shuffle=True)
@@ -38,7 +39,8 @@ class TrainModel:
         self.criterion = nn.CrossEntropyLoss()
         self.optimizer = torch.optim.Adam(
             self.model.parameters(), lr=config["lr"])
-        self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, 'min', patience=3, factor=0.1)
+        self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            self.optimizer, 'min', patience=3, factor=0.1)
 
     def train(self):
         best_val_loss = float("inf")
@@ -54,11 +56,11 @@ class TrainModel:
 
                 self.optimizer.zero_grad()
                 outputs = self.model(entities, tasks, entity_mask, task_mask)
-                
+
                 loss = 0
                 for i, output in enumerate(outputs):
                     loss += self.criterion(output, targets[:, i])
-                
+
                 loss.backward()
                 self.optimizer.step()
 
@@ -74,8 +76,9 @@ class TrainModel:
                     entities, tasks, entity_mask, task_mask, targets = entities.to(self.device), tasks.to(
                         self.device), entity_mask.to(self.device), task_mask.to(self.device), targets.to(self.device)
 
-                    outputs = self.model(entities, tasks, entity_mask, task_mask)
-                    
+                    outputs = self.model(
+                        entities, tasks, entity_mask, task_mask)
+
                     loss = 0
                     for i, output in enumerate(outputs):
                         loss += self.criterion(output, targets[:, i])
@@ -86,7 +89,8 @@ class TrainModel:
             self.scheduler.step(avg_val_loss)
 
             tune.report(loss=avg_val_loss)
-            print(f"Epoch {epoch + 1}/{self.config['num_epochs']}, Train Loss: {avg_train_loss}, Val Loss: {avg_val_loss}")
+            print(
+                f"Epoch {epoch + 1}/{self.config['num_epochs']}, Train Loss: {avg_train_loss}, Val Loss: {avg_val_loss}")
 
             # 早停逻辑
             if avg_val_loss < best_val_loss:
@@ -143,15 +147,15 @@ if __name__ == "__main__":
 
     ray.init()
     trainer = TrainModel(config)
-    
+
     # 加载现有的模型
     model_path = "best_model.pth"
     try:
         trainer.load_model(model_path)
         print(f"Successfully loaded model from {model_path}")
     except FileNotFoundError:
-        print(f"No existing model found at {model_path}. Starting training from scratch.")
+        print(
+            f"No existing model found at {model_path}. Starting training from scratch.")
 
     trainer.train_with_ray()
     trainer.save_model("best_model.pth")
-

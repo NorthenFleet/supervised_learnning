@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 from env import SampleGenerator, DataPreprocessor
-from network import DecisionNetwork
+from network import DecisionNetworkMultiHead
 from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import StepLR
 import torch.optim as optim
@@ -23,8 +23,8 @@ class Train:
         self.device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu")
 
-        self.model = DecisionNetwork(env_config["entity_dim"], network_config["entity_num_heads"], env_config["task_dim"],
-                                     network_config["task_num_heads"], network_config["hidden_dim"], network_config["num_layers"], network_config["mlp_hidden_dim"], env_config["max_entities"], network_config["output_dim"])
+        self.model = DecisionNetworkMultiHead(env_config["entity_dim"], network_config["entity_num_heads"], env_config["task_dim"],
+                                              network_config["task_num_heads"], network_config["hidden_dim"], network_config["num_layers"], network_config["mlp_hidden_dim"], env_config["max_entities"], network_config["output_dim"])
         self.model.to(self.device)
 
         self.criterion = nn.CrossEntropyLoss()
@@ -48,7 +48,7 @@ class Train:
                 outputs = self.model(entities, tasks, entity_mask, task_mask)
 
                 # 确保outputs和task_assignments的维度匹配
-                assert outputs.shape[0] == task_assignments.shape[0], "输出和任务分配的维度不匹配"
+                assert outputs.shape == task_assignments.shape, "输出和任务分配的维度不匹配"
 
                 # 过滤掉无效的任务分配（-1）
                 valid_mask = task_assignments != -1
