@@ -40,34 +40,50 @@ class Train:
         self.model.train()
         for epoch in range(self.num_epochs):
             total_loss = 0.0
-            for entities, tasks, entity_mask, task_mask, task_assignments in self.dataloader:
+            for entities, tasks, entity_mask, task_mask, (task_assignments, task_scores) in self.dataloader:
                 entities, tasks, entity_mask, task_mask = entities.to(self.device), tasks.to(
                     self.device), entity_mask.to(self.device), task_mask.to(self.device)
                 task_assignments = task_assignments.to(self.device)
-
                 self.optimizer.zero_grad()
                 outputs = self.model(entities, tasks, entity_mask, task_mask)
 
                 # 确保outputs和task_assignments的维度匹配
-                outputs = torch.stack(outputs, dim=1)
-                assert outputs.shape[:-
-                                     1] == task_assignments.shape, "输出和任务分配的维度不匹配"
+                assert outputs.shape == task_assignments.shape, "输出和任务分配的维度不匹配"
+
+                # 过滤掉无效的任务分配（-1）
+                valid_mask = task_assignments != -1
+                valid_task_assignments = task_assignments[valid_mask]
+                valid_outputs = outputs[valid_mask]
 
                 # 计算每个平台对应任务的损失
-                loss = 0
-                for i in range(outputs.shape[1]):
-                    loss += self.criterion(outputs[:, i],
-                                           task_assignments[:, i])
+                loss = self.criterion(valid_outputs, valid_task_assignments)
 
                 loss.backward()
                 self.optimizer.step()
 
                 total_loss += loss.item()
 
-            self.scheduler.step()
             avg_loss = total_loss / len(self.dataloader)
+            self.scheduler.step()
+
+            # Log the average loss to TensorBoard
             self.writer.add_scalar('Loss/train', avg_loss, epoch)
-            print(f"Epoch {epoch + 1}/{self.num_epochs}, Loss: {avg_loss}")
+
+            print(
+                f"Epoch {epoch + 1}/{self.num_epochs}, Loss: {avg_loss}")
+
+        # Log the model graph (structure) to TensorBoard
+        dummy_entities = torch.zeros(
+            (self.training_config["batch_size"], self.env_config["max_entities"], self.env_config["entity_dim"])).to(self.device)
+        dummy_tasks = torch.zeros(
+            (self.training_config["batch_size"], self.env_config["max_tasks"], self.env_config["task_dim"])).to(self.device)
+        dummy_entity_mask = torch.ones(
+            (self.training_config["batch_size"], self.env_config["max_entities"])).to(self.device)
+        dummy_task_mask = torch.ones(
+            (self.training_config["batch_size"], self.env_config["max_tasks"])).to(self.device)
+
+        self.writer.add_graph(
+            self.model, (dummy_entities, dummy_tasks, dummy_entity_mask, dummy_task_mask))
 
         self.writer.close()
 
