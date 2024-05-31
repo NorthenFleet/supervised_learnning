@@ -114,7 +114,7 @@ if __name__ == "__main__":
     training_config = {
         "num_samples": 1000,
         "batch_size": 32,
-        "num_epochs": 50,
+        "num_epochs": 100,
         "lr": 0.001,
         "log_dir": "./runs"
     }
