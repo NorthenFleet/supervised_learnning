@@ -58,7 +58,8 @@ class DecisionNetworkMultiHead(nn.Module):
         self.entity_encoder = TransformerEncoder(
         model_dim, entity_num_heads, hidden_dim, num_layers)
         self.task_encoder = TransformerEncoder(
-        model_dim, task_num_heads, hidden_dim, num_layers)#self.entity_encoder = nn.TransformerEncoder(
+        model_dim, task_num_heads, hidden_dim, num_layers)
+        #self.entity_encoder = nn.TransformerEncoder(
         #    nn.TransformerEncoderLayer(model_dim, entity_num_heads, hidden_dim), num_layers)
         #self.task_encoder = nn.TransformerEncoder(
         #    nn.TransformerEncoderLayer(model_dim, task_num_heads, hidden_dim), num_layers)

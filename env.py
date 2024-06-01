@@ -14,7 +14,7 @@ class SampleGenerator(Dataset):
     def __len__(self):
         return self.num_samples
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx):# to 归一化
         num_entities = np.random.randint(
             1, self.data_preprocessor.max_entities + 1)
         entities = np.zeros((num_entities, self.data_preprocessor.entity_dim))
