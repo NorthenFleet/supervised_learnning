@@ -56,10 +56,10 @@ class DecisionNetworkMultiHead(nn.Module):
         super(DecisionNetworkMultiHead, self).__init__()
         self.entity_embedding = nn.Linear(entity_input_dim, model_dim)
         self.task_embedding = nn.Linear(task_input_dim, model_dim)
-        self.entity_encoder = TransformerEncoder(
-            model_dim, num_heads, hidden_dim, num_layers)
-        self.task_encoder = TransformerEncoder(
-            model_dim, num_heads, hidden_dim, num_layers)
+        self.entity_encoder = nn.TransformerEncoder(
+            nn.TransformerEncoderLayer(model_dim, num_heads, hidden_dim), num_layers)
+        self.task_encoder = nn.TransformerEncoder(
+            nn.TransformerEncoderLayer(model_dim, num_heads, hidden_dim), num_layers)
 
         self.combination_layer = nn.Linear(2 * model_dim, model_dim)
 
@@ -68,25 +68,32 @@ class DecisionNetworkMultiHead(nn.Module):
                 nn.Linear(model_dim, mlp_hidden_dim),
                 nn.ReLU(),
                 nn.Dropout(p=0.3),
-                nn.Linear(mlp_hidden_dim, output_dim),
-                nn.Softmax(dim=-1)
+                nn.Linear(mlp_hidden_dim, output_dim)
             ) for _ in range(max_entities)
         ])
 
     def forward(self, entities, tasks, entity_mask, task_mask):
-        entities = self.entity_embedding(entities.permute(1, 0, 2))
-        tasks = self.task_embedding(tasks.permute(1, 0, 2))
+        # Embedding and permute for transformers
+        entities = self.entity_embedding(entities).permute(1, 0, 2)
+        tasks = self.task_embedding(tasks).permute(1, 0, 2)
 
+        # Encoding
         encoded_entities = self.entity_encoder(
-            entities, entity_mask).mean(dim=0)
-        encoded_tasks = self.task_encoder(tasks, task_mask).mean(dim=0)
+            entities, src_key_padding_mask=entity_mask.bool()).mean(dim=0)
+        encoded_tasks = self.task_encoder(
+            tasks, src_key_padding_mask=task_mask.bool()).mean(dim=0)
 
+        # Combine entity and task encodings
         combined_output = torch.cat((encoded_entities, encoded_tasks), dim=-1)
         combined_output = F.relu(self.combination_layer(combined_output))
 
+        # Multi-head outputs
         outputs = []
         for i in range(len(self.heads)):
             output = self.heads[i](combined_output)
+            # Apply mask before softmax
+            output = output.masked_fill(~task_mask.bool(), float('-inf'))
+            output = F.softmax(output, dim=-1)
             outputs.append(output)
 
         return torch.stack(outputs, dim=1)

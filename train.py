@@ -114,9 +114,10 @@ class Train:
 
                 self.optimizer.zero_grad()
 
-                # 对 entities 和 tasks 进行嵌入并保留 batch_size 维度
-                entities = self.model.entity_embedding(entities)
-                tasks = self.model.task_embedding(tasks)
+                # 对 entities 和 tasks 进行嵌入并重排维度
+                entities = self.model.entity_embedding(
+                    entities.permute(1, 0, 2))
+                tasks = self.model.task_embedding(tasks.permute(1, 0, 2))
 
                 outputs = self.model(entities, tasks, entity_mask, task_mask)
 
