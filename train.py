@@ -115,8 +115,9 @@ class Train:
                 outputs = self.model(entities, tasks, entity_mask, task_mask)
 
                 # 确保outputs和task_assignments的维度匹配
-                # outputs = torch.stack(outputs, dim=1)
-                assert outputs.shape == task_assignments.shape, "输出和任务分配的维度不匹配"
+                outputs = torch.stack(outputs, dim=1)
+                assert outputs.shape[:-
+                                     1] == task_assignments.shape, "输出和任务分配的维度不匹配"
 
                 # 计算每个平台对应任务的损失
                 loss = self.criterion(outputs, task_assignments)
