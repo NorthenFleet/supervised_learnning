@@ -50,8 +50,8 @@ class Train:
         dummy_task_mask = torch.ones(
             (training_config["batch_size"], env_config["max_tasks"])).to(self.device)
 
-        self.logger.log_graph(
-            self.model, (dummy_entities, dummy_tasks, dummy_entity_mask, dummy_task_mask))
+        # self.logger.log_graph(
+        #     self.model, (dummy_entities, dummy_tasks, dummy_entity_mask, dummy_task_mask))
 
     def collate_fn(self, batch):
         entities, tasks, entity_mask, task_mask, task_assignments = zip(*batch)
@@ -178,11 +178,11 @@ if __name__ == "__main__":
     network_config = {
         "entity_num_heads": 2,
         "task_num_heads": 2,
-        "hidden_dim": 64,
+        "hidden_dim": 256,
         "num_layers": 2,
         "mlp_hidden_dim": 128,
         "output_dim": 5,     # max_tasks
-        "transfer_dim": 10
+        "transfer_dim": 64
     }
 
     training_config = {
