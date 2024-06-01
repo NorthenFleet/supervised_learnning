@@ -26,7 +26,7 @@ class Train:
         self.device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu")
 
-        self.model = DecisionNetworkMultiHead(env_config["entity_dim"], network_config["entity_num_heads"], env_config["task_dim"],
+        self.model = DecisionNetworkMultiHead(env_config["entity_dim"], env_config["task_dim"], network_config["transfer_dim"], network_config["entity_num_heads"],
                                               network_config["task_num_heads"], network_config["hidden_dim"], network_config["num_layers"], network_config["mlp_hidden_dim"], env_config["max_entities"], network_config["output_dim"])
         self.model.to(self.device)
 
@@ -186,7 +186,8 @@ if __name__ == "__main__":
         "hidden_dim": 64,
         "num_layers": 2,
         "mlp_hidden_dim": 128,
-        "output_dim": 5     # max_tasks
+        "output_dim": 5,     # max_tasks
+        "transfer_dim": 10
     }
 
     training_config = {
