@@ -52,14 +52,17 @@ class DecisionNetwork(nn.Module):
 
 
 class DecisionNetworkMultiHead(nn.Module):
-    def __init__(self, entity_input_dim, task_input_dim, model_dim, num_heads, hidden_dim, num_layers, mlp_hidden_dim, max_entities, output_dim):
+    def __init__(self, entity_input_dim, task_input_dim, model_dim, entity_num_heads, task_num_heads, hidden_dim, num_layers, mlp_hidden_dim, max_entities, output_dim):
         super(DecisionNetworkMultiHead, self).__init__()
         self.entity_embedding = nn.Linear(entity_input_dim, model_dim)
         self.task_embedding = nn.Linear(task_input_dim, model_dim)
-        self.entity_encoder = nn.TransformerEncoder(
-            nn.TransformerEncoderLayer(model_dim, num_heads, hidden_dim), num_layers)
-        self.task_encoder = nn.TransformerEncoder(
-            nn.TransformerEncoderLayer(model_dim, num_heads, hidden_dim), num_layers)
+        self.entity_encoder = TransformerEncoder(
+        model_dim, entity_num_heads, hidden_dim, num_layers)
+        self.task_encoder = TransformerEncoder(
+        model_dim, task_num_heads, hidden_dim, num_layers)#self.entity_encoder = nn.TransformerEncoder(
+        #    nn.TransformerEncoderLayer(model_dim, entity_num_heads, hidden_dim), num_layers)
+        #self.task_encoder = nn.TransformerEncoder(
+        #    nn.TransformerEncoderLayer(model_dim, task_num_heads, hidden_dim), num_layers)
 
         self.combination_layer = nn.Linear(2 * model_dim, model_dim)
 
@@ -96,4 +99,5 @@ class DecisionNetworkMultiHead(nn.Module):
             output = F.softmax(output, dim=-1)
             outputs.append(output)
 
-        return torch.stack(outputs, dim=1)
+
+                                                                                                                                                                                                                                                      return torch.stack(outputs, dim=1)
