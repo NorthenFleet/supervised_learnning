@@ -57,11 +57,15 @@ class DecisionNetworkMultiHead(nn.Module):
             output = self.heads[i](combined_output)
             # Apply mask before softmax
             output = output.masked_fill(~task_mask.bool(), float('-inf'))
+            # Keep softmax for probability distribution
             output = F.softmax(output, dim=-1)
-            # Use argmax to get the index of the highest probability
-            outputs.append(torch.argmax(output, dim=-1))
+            outputs.append(output)
 
         return torch.stack(outputs, dim=1)
+
+    def predict(self, entities, tasks, entity_mask, task_mask):
+        outputs = self.forward(entities, tasks, entity_mask, task_mask)
+        return torch.argmax(outputs, dim=-1)  # Return indices for prediction
 
 
 class DecisionNetwork(nn.Module):
