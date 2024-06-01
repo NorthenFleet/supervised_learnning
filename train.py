@@ -113,12 +113,12 @@ class Train:
                 task_assignments = task_assignments.to(self.device)
 
                 self.optimizer.zero_grad()
-                outputs = self.model(entities, tasks, entity_mask, task_mask)
 
-                # 调试信息，打印输入和输出的形状
-                print(f"entities shape: {entities.shape}")
-                print(f"tasks shape: {tasks.shape}")
-                print(f"outputs shape: {[output.shape for output in outputs]}")
+                # 对 entities 和 tasks 进行嵌入并保留 batch_size 维度
+                entities = self.model.entity_embedding(entities)
+                tasks = self.model.task_embedding(tasks)
+
+                outputs = self.model(entities, tasks, entity_mask, task_mask)
 
                 # 确保outputs和task_assignments的维度匹配
                 outputs = torch.stack(outputs, dim=1)
