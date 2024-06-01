@@ -44,7 +44,6 @@ class DecisionNetworkMultiHead(nn.Module):
         # Encoding
         encoded_entities = self.entity_encoder(
             entities, src_key_padding_mask=entity_mask.bool()).max(dim=0)[0]
-
         encoded_tasks = self.task_encoder(
             tasks, src_key_padding_mask=task_mask.bool()).max(dim=0)[0]
 
