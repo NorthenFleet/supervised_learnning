@@ -79,7 +79,7 @@ class Train:
 
                 loss = 0
                 for i, output in enumerate(outputs):
-                    loss += self.criterion(output, targets[:, i])
+                    loss += self.criterion(output, targets[i])
 
                 total_val_loss += loss.item()
 
@@ -115,7 +115,7 @@ class Train:
                 outputs = self.model(entities, tasks, entity_mask, task_mask)
 
                 # 确保outputs和task_assignments的维度匹配
-                outputs = torch.stack(outputs, dim=1)
+                # outputs = torch.stack(outputs, dim=1)
                 assert outputs.shape[:-
                                      1] == task_assignments.shape, "输出和任务分配的维度不匹配"
 
