@@ -122,8 +122,12 @@ class Train:
                 # 计算每个平台对应任务的损失
                 loss = 0
                 for i in range(outputs.shape[1]):
-                    loss += self.criterion(outputs[:, i, :],
-                                           task_assignments[:, i])
+                    valid_mask = (task_assignments[:, i] != -1)
+                    valid_outputs = outputs[valid_mask, i, :]
+                    valid_task_assignments = task_assignments[valid_mask, i]
+                    if valid_outputs.size(0) > 0:
+                        loss += self.criterion(valid_outputs,
+                                               valid_task_assignments)
 
                 loss.backward()
 
