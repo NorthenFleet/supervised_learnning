@@ -57,11 +57,17 @@ class DecisionNetworkMultiHead(nn.Module):
             output = self.heads[i](combined_output)
             # Apply mask before softmax
             output = output.masked_fill(~task_mask.bool(), float('-inf'))
-            # Keep softmax for probability distribution
             output = F.softmax(output, dim=-1)
             outputs.append(output)
 
-        return torch.stack(outputs, dim=1)
+        outputs = torch.stack(outputs, dim=1)
+
+        # 检查NaN
+        if torch.isnan(outputs).any():
+            print("NaN detected in outputs")
+            return None  # 或者采取其他适当的措施
+
+        return outputs
 
     def predict(self, entities, tasks, entity_mask, task_mask):
         outputs = self.forward(entities, tasks, entity_mask, task_mask)
