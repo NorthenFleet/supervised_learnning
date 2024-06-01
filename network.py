@@ -12,8 +12,7 @@ class TransformerEncoder(nn.Module):
             self.encoder_layer, num_layers)
 
     def forward(self, src, src_mask):
-        src_key_padding_mask = (src_mask == 0)
-        return self.transformer_encoder(src, src_key_padding_mask=src_key_padding_mask)
+        return self.transformer_encoder(src, src_key_padding_mask=src_mask)
 
 
 class DecisionNetwork(nn.Module):
@@ -82,9 +81,9 @@ class DecisionNetworkMultiHead(nn.Module):
 
         # Encoding
         encoded_entities = self.entity_encoder(
-            entities, src_key_padding_mask=entity_mask.bool()).mean(dim=0)
+            entities, src_mask=entity_mask.bool()).mean(dim=0)
         encoded_tasks = self.task_encoder(
-            tasks, src_key_padding_mask=task_mask.bool()).mean(dim=0)
+            tasks, src_mask=task_mask.bool()).mean(dim=0)
 
         # Combine entity and task encodings
         combined_output = torch.cat((encoded_entities, encoded_tasks), dim=-1)

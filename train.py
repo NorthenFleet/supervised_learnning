@@ -26,7 +26,7 @@ class Train:
         self.device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu")
 
-        self.model = DecisionNetworkMultiHead(env_config["entity_dim"], env_config["task_dim"], env_config["task_dim"], network_config["entity_num_heads"],
+        self.model = DecisionNetworkMultiHead(env_config["entity_dim"], env_config["task_dim"], network_config["transfer_dim"], network_config["entity_num_heads"],
                                               network_config["task_num_heads"], network_config["hidden_dim"], network_config["num_layers"], network_config["mlp_hidden_dim"], env_config["max_entities"], network_config["output_dim"])
         self.model.to(self.device)
 
@@ -115,23 +115,18 @@ class Train:
 
                 self.optimizer.zero_grad()
 
-                # 对 entities 和 tasks 进行嵌入并重排维度
-                entities = self.model.entity_embedding(
-                    entities.permute(1, 0, 2))
-                tasks = self.model.task_embedding(tasks.permute(1, 0, 2))
-
                 outputs = self.model(entities, tasks, entity_mask, task_mask)
 
                 # 确保outputs和task_assignments的维度匹配
-                outputs = torch.stack(outputs, dim=1)
+                # outputs = torch.stack(outputs, dim=1)
                 assert outputs.shape[:-
                                      1] == task_assignments.shape, "输出和任务分配的维度不匹配"
-
+                '''
                 # 过滤掉无效的任务分配（0，因为我们之前将 -1 转换为 0）
                 valid_mask = task_assignments != 0
                 valid_task_assignments = task_assignments[valid_mask]
                 valid_outputs = outputs[valid_mask]
-
+                '''
                 # 计算每个平台对应任务的损失
                 loss = self.criterion(valid_outputs, valid_task_assignments)
 
@@ -184,11 +179,11 @@ if __name__ == "__main__":
     network_config = {
         "entity_num_heads": 2,
         "task_num_heads": 2,
-        "hidden_dim": 64,
+        "hidden_dim": 256,
         "num_layers": 2,
         "mlp_hidden_dim": 128,
         "output_dim": 5,     # max_tasks
-        "transfer_dim": 10
+        "transfer_dim": 64
     }
 
     training_config = {
