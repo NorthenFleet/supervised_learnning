@@ -112,10 +112,16 @@ class Train:
 
                 self.optimizer.zero_grad()
 
+                # 检查并处理 entity_mask 和 task_mask 中全为 1 的情况
+                if torch.any(entity_mask.sum(dim=1) == entity_mask.size(1)):
+                    entity_mask[entity_mask.sum(
+                        dim=1) == entity_mask.size(1)] = 0
+                if torch.any(task_mask.sum(dim=1) == task_mask.size(1)):
+                    task_mask[task_mask.sum(dim=1) == task_mask.size(1)] = 0
+
                 outputs = self.model(entities, tasks, entity_mask, task_mask)
 
                 # 确保outputs和task_assignments的维度匹配
-                # outputs = torch.stack(outputs, dim=1)
                 assert outputs.shape[:-
                                      1] == task_assignments.shape, "输出和任务分配的维度不匹配"
 

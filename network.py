@@ -37,6 +37,12 @@ class DecisionNetworkMultiHead(nn.Module):
         ])
 
     def forward(self, entities, tasks, entity_mask, task_mask):
+        # 检查并处理 entity_mask 和 task_mask 中全为 1 的情况
+        if torch.any(entity_mask.sum(dim=1) == entity_mask.size(1)):
+            entity_mask[entity_mask.sum(dim=1) == entity_mask.size(1)] = 0
+        if torch.any(task_mask.sum(dim=1) == task_mask.size(1)):
+            task_mask[task_mask.sum(dim=1) == task_mask.size(1)] = 0
+
         # Embedding and permute for transformers
         entities = self.entity_embedding(entities).permute(1, 0, 2)
         tasks = self.task_embedding(tasks).permute(1, 0, 2)
@@ -44,8 +50,18 @@ class DecisionNetworkMultiHead(nn.Module):
         # Encoding
         encoded_entities = self.entity_encoder(
             entities, src_key_padding_mask=entity_mask.bool()).max(dim=0)[0]
+        # 检查NaN
+        if torch.isnan(encoded_entities).any():
+            print("NaN detected in outputs")
+            return None  # 或者采取其他适当的措施
+
         encoded_tasks = self.task_encoder(
             tasks, src_key_padding_mask=task_mask.bool()).max(dim=0)[0]
+
+        # 检查NaN
+        if torch.isnan(encoded_tasks).any():
+            print("NaN detected in outputs")
+            return None  # 或者采取其他适当的措施
 
         # Combine entity and task encodings
         combined_output = torch.cat((encoded_entities, encoded_tasks), dim=-1)
@@ -57,11 +73,16 @@ class DecisionNetworkMultiHead(nn.Module):
             output = self.heads[i](combined_output)
             # Apply mask before softmax
             output = output.masked_fill(~task_mask.bool(), float('-inf'))
-            # Keep softmax for probability distribution
             output = F.softmax(output, dim=-1)
             outputs.append(output)
 
-        return torch.stack(outputs, dim=1)
+        outputs = torch.stack(outputs, dim=1)
+
+        return outputs
+
+    def predict(self, entities, tasks, entity_mask, task_mask):
+        outputs = self.forward(entities, tasks, entity_mask, task_mask)
+        return torch.argmax(outputs, dim=-1)  # Return indices for prediction
 
     def predict(self, entities, tasks, entity_mask, task_mask):
         outputs = self.forward(entities, tasks, entity_mask, task_mask)
