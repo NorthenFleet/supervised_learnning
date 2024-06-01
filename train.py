@@ -30,7 +30,7 @@ class Train:
                                               network_config["task_num_heads"], network_config["hidden_dim"], network_config["num_layers"], network_config["mlp_hidden_dim"], env_config["max_entities"], network_config["output_dim"])
         self.model.to(self.device)
 
-        self.criterion = nn.CrossEntropyLoss()
+        self.criterion = nn.CrossEntropyLoss(ignore_index=-1)  # 忽略 -1 标签
         self.optimizer = optim.Adam(
             self.model.parameters(), lr=training_config["lr"])
         self.scheduler = ReduceLROnPlateau(
@@ -60,11 +60,9 @@ class Train:
         entity_mask = torch.stack(entity_mask)
         task_mask = torch.stack(task_mask)
 
-        # 修正 task_assignments 以确保每个元素都是整数张量并过滤掉 -1
+        # 保留 -1 表示无效数据
         task_assignments = [torch.tensor(
             ta, dtype=torch.long) for ta in task_assignments]
-        for ta in task_assignments:
-            ta[ta == -1] = 0  # 将所有 -1 转换为 0
         task_assignments = torch.stack(task_assignments)
         return entities, tasks, entity_mask, task_mask, task_assignments
 

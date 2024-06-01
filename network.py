@@ -16,41 +16,6 @@ class TransformerEncoder(nn.Module):
         return self.transformer_encoder(src, src_key_padding_mask=src_key_padding_mask)
 
 
-class DecisionNetwork(nn.Module):
-    def __init__(self, entity_input_dim, entity_num_heads, task_input_dim, task_num_heads, hidden_dim, num_layers, mlp_hidden_dim, max_entities, output_dim):
-        super(DecisionNetwork, self).__init__()
-        self.entity_encoder = TransformerEncoder(
-            entity_input_dim, entity_num_heads, hidden_dim, num_layers)
-        self.task_encoder = TransformerEncoder(
-            task_input_dim, task_num_heads, hidden_dim, num_layers)
-
-        self.max_entities = max_entities
-
-        self.mlp = nn.Sequential(
-            nn.Linear(entity_input_dim+task_input_dim, mlp_hidden_dim),
-            nn.ReLU(),
-            nn.Dropout(p=0.3),
-            nn.Linear(mlp_hidden_dim, output_dim)
-        )
-
-    def forward(self, entities, tasks, entity_mask, task_mask):
-        entities = entities.permute(1, 0, 2)
-        tasks = tasks.permute(1, 0, 2)
-
-        encoded_entities = self.entity_encoder(
-            entities, entity_mask).mean(dim=0)
-        encoded_tasks = self.task_encoder(tasks, task_mask).mean(dim=0)
-
-        combined = torch.cat((encoded_entities, encoded_tasks), dim=1)
-
-        outputs = []
-        for _ in range(self.max_entities):
-            output = self.mlp(combined)
-            outputs.append(output)
-
-        return torch.stack(outputs, dim=1)
-
-
 class DecisionNetworkMultiHead(nn.Module):
     def __init__(self, entity_input_dim, task_input_dim, transfer_dim, entity_num_heads, task_num_heads, hidden_dim, num_layers, mlp_hidden_dim, max_entities, output_dim):
         super(DecisionNetworkMultiHead, self).__init__()
@@ -94,6 +59,41 @@ class DecisionNetworkMultiHead(nn.Module):
             # Apply mask before softmax
             output = output.masked_fill(~task_mask.bool(), float('-inf'))
             output = F.softmax(output, dim=-1)
+            outputs.append(output)
+
+        return torch.stack(outputs, dim=1)
+
+
+class DecisionNetwork(nn.Module):
+    def __init__(self, entity_input_dim, entity_num_heads, task_input_dim, task_num_heads, hidden_dim, num_layers, mlp_hidden_dim, max_entities, output_dim):
+        super(DecisionNetwork, self).__init__()
+        self.entity_encoder = TransformerEncoder(
+            entity_input_dim, entity_num_heads, hidden_dim, num_layers)
+        self.task_encoder = TransformerEncoder(
+            task_input_dim, task_num_heads, hidden_dim, num_layers)
+
+        self.max_entities = max_entities
+
+        self.mlp = nn.Sequential(
+            nn.Linear(entity_input_dim+task_input_dim, mlp_hidden_dim),
+            nn.ReLU(),
+            nn.Dropout(p=0.3),
+            nn.Linear(mlp_hidden_dim, output_dim)
+        )
+
+    def forward(self, entities, tasks, entity_mask, task_mask):
+        entities = entities.permute(1, 0, 2)
+        tasks = tasks.permute(1, 0, 2)
+
+        encoded_entities = self.entity_encoder(
+            entities, entity_mask).mean(dim=0)
+        encoded_tasks = self.task_encoder(tasks, task_mask).mean(dim=0)
+
+        combined = torch.cat((encoded_entities, encoded_tasks), dim=1)
+
+        outputs = []
+        for _ in range(self.max_entities):
+            output = self.mlp(combined)
             outputs.append(output)
 
         return torch.stack(outputs, dim=1)
