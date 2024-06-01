@@ -11,8 +11,7 @@ class TransformerEncoder(nn.Module):
         self.transformer_encoder = nn.TransformerEncoder(
             self.encoder_layer, num_layers)
 
-    def forward(self, src, src_mask):
-        src_key_padding_mask = (src_mask == 0)
+    def forward(self, src, src_key_padding_mask):
         return self.transformer_encoder(src, src_key_padding_mask=src_key_padding_mask)
 
 
