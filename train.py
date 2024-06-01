@@ -120,7 +120,10 @@ class Train:
                                      1] == task_assignments.shape, "输出和任务分配的维度不匹配"
 
                 # 计算每个平台对应任务的损失
-                loss = self.criterion(outputs, task_assignments)
+                loss = 0
+                for i in range(outputs.shape[1]):
+                    loss += self.criterion(outputs[:, i, :],
+                                           task_assignments[:, i])
 
                 loss.backward()
 
