@@ -58,7 +58,8 @@ class DecisionNetworkMultiHead(nn.Module):
             # Apply mask before softmax
             output = output.masked_fill(~task_mask.bool(), float('-inf'))
             output = F.softmax(output, dim=-1)
-            outputs.append(output)
+            # Use argmax to get the index of the highest probability
+            outputs.append(torch.argmax(output, dim=-1))
 
         return torch.stack(outputs, dim=1)
 
