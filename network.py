@@ -99,5 +99,4 @@ class DecisionNetworkMultiHead(nn.Module):
             output = F.softmax(output, dim=-1)
             outputs.append(output)
 
-
-                                                                                                                                                                                                                                                      return torch.stack(outputs, dim=1)
+        return torch.stack(outputs, dim=1)

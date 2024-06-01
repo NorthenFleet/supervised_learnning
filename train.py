@@ -187,7 +187,8 @@ if __name__ == "__main__":
         "hidden_dim": 64,
         "num_layers": 2,
         "mlp_hidden_dim": 128,
-        "output_dim": 5     # max_tasks
+        "output_dim": 5,     # max_tasks
+        "transfer_dim": 10
     }
 
     training_config = {
