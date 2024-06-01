@@ -26,7 +26,7 @@ class Train:
         self.device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu")
 
-        self.model = DecisionNetworkMultiHead(env_config["entity_dim"], env_config["task_dim"], env_config["task_dim"], network_config["entity_num_heads"],
+        self.model = DecisionNetworkMultiHead(env_config["entity_dim"], env_config["task_dim"], network_config["transfer_dim"], network_config["entity_num_heads"],
                                               network_config["task_num_heads"], network_config["hidden_dim"], network_config["num_layers"], network_config["mlp_hidden_dim"], env_config["max_entities"], network_config["output_dim"])
         self.model.to(self.device)
 
@@ -59,13 +59,12 @@ class Train:
         tasks = torch.stack(tasks)
         entity_mask = torch.stack(entity_mask)
         task_mask = torch.stack(task_mask)
-        '''
+
         # 修正 task_assignments 以确保每个元素都是整数张量并过滤掉 -1
         task_assignments = [torch.tensor(
             ta, dtype=torch.long) for ta in task_assignments]
         for ta in task_assignments:
             ta[ta == -1] = 0  # 将所有 -1 转换为 0
-        '''
         task_assignments = torch.stack(task_assignments)
         return entities, tasks, entity_mask, task_mask, task_assignments
 
@@ -115,11 +114,6 @@ class Train:
 
                 self.optimizer.zero_grad()
 
-                # 对 entities 和 tasks 进行嵌入并重排维度
-                entities = self.model.entity_embedding(
-                    entities.permute(1, 0, 2))
-                tasks = self.model.task_embedding(tasks.permute(1, 0, 2))
-
                 outputs = self.model(entities, tasks, entity_mask, task_mask)
 
                 # 确保outputs和task_assignments的维度匹配
@@ -127,13 +121,8 @@ class Train:
                 assert outputs.shape[:-
                                      1] == task_assignments.shape, "输出和任务分配的维度不匹配"
 
-                # 过滤掉无效的任务分配（0，因为我们之前将 -1 转换为 0）
-                valid_mask = task_assignments != 0
-                valid_task_assignments = task_assignments[valid_mask]
-                valid_outputs = outputs[valid_mask]
-
                 # 计算每个平台对应任务的损失
-                loss = self.criterion(valid_outputs, valid_task_assignments)
+                loss = self.criterion(outputs, task_assignments)
 
                 loss.backward()
 

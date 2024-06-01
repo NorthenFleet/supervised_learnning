@@ -52,23 +52,20 @@ class DecisionNetwork(nn.Module):
 
 
 class DecisionNetworkMultiHead(nn.Module):
-    def __init__(self, entity_input_dim, task_input_dim, model_dim, entity_num_heads, task_num_heads, hidden_dim, num_layers, mlp_hidden_dim, max_entities, output_dim):
+    def __init__(self, entity_input_dim, task_input_dim, transfer_dim, entity_num_heads, task_num_heads, hidden_dim, num_layers, mlp_hidden_dim, max_entities, output_dim):
         super(DecisionNetworkMultiHead, self).__init__()
-        self.entity_embedding = nn.Linear(entity_input_dim, model_dim)
-        self.task_embedding = nn.Linear(task_input_dim, model_dim)
+        self.entity_embedding = nn.Linear(entity_input_dim, transfer_dim)
+        self.task_embedding = nn.Linear(task_input_dim, transfer_dim)
         self.entity_encoder = TransformerEncoder(
-        model_dim, entity_num_heads, hidden_dim, num_layers)
+            transfer_dim, entity_num_heads, hidden_dim, num_layers)
         self.task_encoder = TransformerEncoder(
-        model_dim, task_num_heads, hidden_dim, num_layers)#self.entity_encoder = nn.TransformerEncoder(
-        #    nn.TransformerEncoderLayer(model_dim, entity_num_heads, hidden_dim), num_layers)
-        #self.task_encoder = nn.TransformerEncoder(
-        #    nn.TransformerEncoderLayer(model_dim, task_num_heads, hidden_dim), num_layers)
+            transfer_dim, task_num_heads, hidden_dim, num_layers)
 
-        self.combination_layer = nn.Linear(2 * model_dim, model_dim)
+        self.combination_layer = nn.Linear(2 * transfer_dim, transfer_dim)
 
         self.heads = nn.ModuleList([
             nn.Sequential(
-                nn.Linear(model_dim, mlp_hidden_dim),
+                nn.Linear(transfer_dim, mlp_hidden_dim),
                 nn.ReLU(),
                 nn.Dropout(p=0.3),
                 nn.Linear(mlp_hidden_dim, output_dim)
@@ -82,9 +79,9 @@ class DecisionNetworkMultiHead(nn.Module):
 
         # Encoding
         encoded_entities = self.entity_encoder(
-            entities, src_key_padding_mask=entity_mask.bool()).mean(dim=0)
+            entities, src_key_padding_mask=entity_mask.bool()).max(dim=0)[0]
         encoded_tasks = self.task_encoder(
-            tasks, src_key_padding_mask=task_mask.bool()).mean(dim=0)
+            tasks, src_key_padding_mask=task_mask.bool()).max(dim=0)[0]
 
         # Combine entity and task encodings
         combined_output = torch.cat((encoded_entities, encoded_tasks), dim=-1)
