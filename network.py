@@ -37,12 +37,13 @@ class DecisionNetworkMultiHead(nn.Module):
         ])
 
     def forward(self, entities, tasks, entity_mask, task_mask):
+        '''
         # 检查并处理 entity_mask 和 task_mask 中全为 1 的情况
         if torch.any(entity_mask.sum(dim=1) == entity_mask.size(1)):
             entity_mask[entity_mask.sum(dim=1) == entity_mask.size(1)] = 0
         if torch.any(task_mask.sum(dim=1) == task_mask.size(1)):
             task_mask[task_mask.sum(dim=1) == task_mask.size(1)] = 0
-
+        '''
         # Embedding and permute for transformers
         entities = self.entity_embedding(entities).permute(1, 0, 2)
         tasks = self.task_embedding(tasks).permute(1, 0, 2)
@@ -68,13 +69,27 @@ class DecisionNetworkMultiHead(nn.Module):
         combined_output = self.combination_layer(combined_output)
         combined_output = F.relu(combined_output)
 
-        # Multi-head outputs
+        # Multi-head outputs # 有的头应该直接被掩掉不应该输出
+        #每个头意味着每个算子必须输出一个任务
+        #而环境设置的是每个任务都能被至少一个算子解决
+        #感觉得改变网络的输出结构了
+        #头数得变成任务数量了
+        
         outputs = []
         for i in range(len(self.heads)):
             output = self.heads[i](combined_output)
-            # Apply mask before softmax
-            output = output.masked_fill(~task_mask.bool(), float('-inf'))
+            if torch.isnan(output).any():
+                print("NaN detected in outputs")
+                return None  # 或者采取其他适当的措施
+            # Apply mask before softmax # 这个掩码只是
+            output = output.masked_fill(task_mask.bool(), float('-inf'))#为什么取反，掩码为1的不才会被掩掉吗
+            if torch.isnan(output).any():
+                print("NaN detected in outputs")
+                return None  # 或者采取其他适当的措施
             output = F.softmax(output, dim=-1)
+            if torch.isnan(output).any():
+                print("NaN detected in outputs")
+                return None  # 或者采取其他适当的措施
             outputs.append(output)
 
         outputs = torch.stack(outputs, dim=1)

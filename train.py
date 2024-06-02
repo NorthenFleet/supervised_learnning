@@ -115,13 +115,6 @@ class Train:
 
                 self.optimizer.zero_grad()
 
-                # 检查并处理 entity_mask 和 task_mask 中全为 1 的情况
-                if torch.any(entity_mask.sum(dim=1) == entity_mask.size(1)):
-                    entity_mask[entity_mask.sum(
-                        dim=1) == entity_mask.size(1)] = 0
-                if torch.any(task_mask.sum(dim=1) == task_mask.size(1)):
-                    task_mask[task_mask.sum(dim=1) == task_mask.size(1)] = 0
-
                 outputs = self.model(entities, tasks, entity_mask, task_mask)
 
                 # 确保outputs和task_assignments的维度匹配
@@ -129,6 +122,8 @@ class Train:
                                      1] == task_assignments.shape, "输出和任务分配的维度不匹配"
                 # 计算每个平台对应任务的损失
                 loss = 0
+
+                ### 我觉得下面还有点问题，output的多头每一个都要输出，但是实际上应该被淹掉一些头
                 for i in range(outputs.shape[1]):
                     valid_mask = (task_assignments[:, i] != -1)
                     valid_outputs = outputs[valid_mask, i, :]
