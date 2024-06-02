@@ -27,6 +27,10 @@ class SampleGenerator(Dataset):
             endurance = np.random.uniform(1, 10)          # 可持续时长
             entities[i] = [x, y, range_, speed, detection_range, endurance]
 
+        # 对 entities 进行标准化
+        entities = (entities - entities.mean(axis=0)) / \
+            (entities.std(axis=0) + 1e-5)
+
         num_tasks = np.random.randint(1, self.data_preprocessor.max_tasks + 1)
         tasks = np.zeros((num_tasks, self.data_preprocessor.task_dim))
         for j in range(num_tasks):
@@ -36,6 +40,9 @@ class SampleGenerator(Dataset):
             # 任务类型 (侦察=0, 打击=1, 支援=2)
             task_type = np.random.randint(0, 3)
             tasks[j] = [priority, x, y, task_type]
+
+        # 对 tasks 进行标准化
+        tasks = (tasks - tasks.mean(axis=0)) / (tasks.std(axis=0) + 1e-5)
 
         tasks = tasks[tasks[:, 0].argsort()[::-1]]
 

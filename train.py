@@ -29,6 +29,7 @@ class Train:
         self.model = DecisionNetworkMultiHead(env_config["entity_dim"], env_config["task_dim"], network_config["transfer_dim"], network_config["entity_num_heads"],
                                               network_config["task_num_heads"], network_config["hidden_dim"], network_config["num_layers"], network_config["mlp_hidden_dim"], env_config["max_entities"], network_config["output_dim"])
         self.model.to(self.device)
+        self.model.apply(init_weights)
 
         self.criterion = nn.CrossEntropyLoss(ignore_index=-1)  # 忽略 -1 标签
         self.optimizer = optim.Adam(
@@ -52,6 +53,8 @@ class Train:
 
 #        self.logger.log_graph(
   #          self.model, (dummy_entities, dummy_tasks, dummy_entity_mask, dummy_task_mask))
+        # self.logger.log_graph(
+        #     self.model, (dummy_entities, dummy_tasks, dummy_entity_mask, dummy_task_mask))
 
     def collate_fn(self, batch):
         entities, tasks, entity_mask, task_mask, task_assignments = zip(*batch)
@@ -112,10 +115,16 @@ class Train:
 
                 self.optimizer.zero_grad()
 
+                # 检查并处理 entity_mask 和 task_mask 中全为 1 的情况
+                if torch.any(entity_mask.sum(dim=1) == entity_mask.size(1)):
+                    entity_mask[entity_mask.sum(
+                        dim=1) == entity_mask.size(1)] = 0
+                if torch.any(task_mask.sum(dim=1) == task_mask.size(1)):
+                    task_mask[task_mask.sum(dim=1) == task_mask.size(1)] = 0
+
                 outputs = self.model(entities, tasks, entity_mask, task_mask)
 
                 # 确保outputs和task_assignments的维度匹配
-                # outputs = torch.stack(outputs, dim=1)
                 assert outputs.shape[:-
                                      1] == task_assignments.shape, "输出和任务分配的维度不匹配"
                 # 计算每个平台对应任务的损失
@@ -166,6 +175,18 @@ class Train:
         ModelManager.load_model(self.model, path, self.device)
 
 
+def init_weights(m):
+    if type(m) == nn.Linear:
+        nn.init.kaiming_uniform_(m.weight, nonlinearity='relu')
+    elif type(m) == nn.TransformerEncoderLayer:
+        nn.init.xavier_uniform_(m.self_attn.in_proj_weight)
+        nn.init.constant_(m.self_attn.in_proj_bias, 0)
+        nn.init.xavier_uniform_(m.linear1.weight)
+        nn.init.constant_(m.linear1.bias, 0)
+        nn.init.xavier_uniform_(m.linear2.weight)
+        nn.init.constant_(m.linear2.bias, 0)
+
+
 if __name__ == "__main__":
     env_config = {
         "max_entities": 10,
@@ -187,7 +208,7 @@ if __name__ == "__main__":
     training_config = {
         "num_samples": 1000,
         "batch_size": 32,
-        "lr": 0.001,
+        "lr": 0.0001,
         "num_epochs": 50,
         "patience": 10
     }
