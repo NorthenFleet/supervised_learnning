@@ -65,7 +65,8 @@ class DecisionNetworkMultiHead(nn.Module):
 
         # Combine entity and task encodings
         combined_output = torch.cat((encoded_entities, encoded_tasks), dim=-1)
-        combined_output = F.relu(self.combination_layer(combined_output))
+        combined_output = self.combination_layer(combined_output)
+        combined_output = F.relu(combined_output)
 
         # Multi-head outputs
         outputs = []
@@ -79,7 +80,6 @@ class DecisionNetworkMultiHead(nn.Module):
         outputs = torch.stack(outputs, dim=1)
 
         return outputs
-
 
     def predict(self, entities, tasks, entity_mask, task_mask):
         outputs = self.forward(entities, tasks, entity_mask, task_mask)
