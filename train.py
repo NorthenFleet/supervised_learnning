@@ -207,7 +207,7 @@ if __name__ == "__main__":
     training_config = {
         "num_samples": 1000,
         "batch_size": 32,
-        "lr": 0.0001,
+        "lr": 0.001,
         "num_epochs": 50,
         "patience": 10
     }

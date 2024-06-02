@@ -1,0 +1,74 @@
++-------------------------+       +-------------------------+       +-------------------------+
+|      Input Layer        |       |    Embedding Layer      |       |  Dimension Permutation  |
++-------------------------+       +-------------------------+       +-------------------------+
+| - Entities: (batch_size,|       | - entity_embedding:     |       | - entities: (max_entities|
+|     max_entities,       |       |     (batch_size, max_   |       |     batch_size, transfer_|
+|     entity_input_dim)   |       |     entities, transfer_ |       |     dim)                |
+| - Tasks: (batch_size,   |       |     dim)                |       | - tasks: (max_tasks,    |
+|     max_tasks, task_    |       | - task_embedding:       |       |     batch_size, transfer_|
+|     input_dim)          |       |     (batch_size, max_   |       |     dim)                |
+| - Entity Mask: (batch_  |       |     tasks, transfer_dim)|       +-------------------------+
+|     size, max_entities) |       +-------------------------+                 |
+| - Task Mask: (batch_    |                                               +-------------------------+
+|     size, max_tasks)    |                                               |  Transformer Encoder   |
++-------------------------+                                               +-------------------------+
+            |                                                               |
+            v                                                               v
++-------------------------+       +-------------------------+       +-------------------------+
+| Transformer Encoder:    |       |     Pooling Layer       |       |   Combination Layer     |
+| - entity_encoder:       |       +-------------------------+       +-------------------------+
+|     (max_entities,      |       | - max_pool: (batch_size,|       | - Linear: (batch_size,  |
+|     batch_size,         |       |     transfer_dim)       |       |     2 * transfer_dim,   |
+|     transfer_dim)       |       | - max_pool: (batch_size,|       |     transfer_dim)       |
+| - task_encoder:         |       |     transfer_dim)       |       +-------------------------+
+|     (max_tasks,         |       +-------------------------+                 |
+|     batch_size,         |                 |                                 v
+|     transfer_dim)       |                 v                +-------------------------+
++-------------------------+         +-------------------------+       |   Activation Layer     |
+            |                     |   Combination Layer     |       +-------------------------+
+            v                     | - Linear: (batch_size,  |       | - ReLU: (batch_size,    |
++-------------------------+       |     2 * transfer_dim,   |       |     transfer_dim)       |
+|     Pooling Layer       |       |     transfer_dim)       |       +-------------------------+
++-------------------------+       +-------------------------+                 |
+| - max_pool: (batch_size,|                         |                                 v
+|     transfer_dim)       |                         v                                 v
+| - max_pool: (batch_size,|       +-------------------------+       +-------------------------+
+|     transfer_dim)       |       |  Multi-head Output Layer|       |         Output Layer    |
++-------------------------+       +-------------------------+       +-------------------------+
+            |                       | - heads: (batch_size,   |       | - outputs: (batch_size,|
+            v                       |     transfer_dim)       |       |     max_entities,      |
++-------------------------+         | - stack: (batch_size,  |       |     output_dim)        |
+|  Combination Layer     |         |     max_entities,      |       +-------------------------+
++-------------------------+         |     output_dim)        |
+| - Linear: (batch_size,  |         +-------------------------+
+|     2 * transfer_dim,   |
+|     transfer_dim)       |
++-------------------------+
+            |
+            v
++-------------------------+
+|   Activation Layer      |
++-------------------------+
+| - ReLU: (batch_size,    |
+|     transfer_dim)       |
++-------------------------+
+            |
+            v
++-------------------------+
+| Multi-head Output Layer |
++-------------------------+
+| - heads: (batch_size,   |
+|     transfer_dim)       |
+| - stack: (batch_size,   |
+|     max_entities,       |
+|     output_dim)         |
++-------------------------+
+            |
+            v
++-------------------------+
+|     Output Layer        |
++-------------------------+
+| - outputs: (batch_size, |
+|     max_entities,       |
+|     output_dim)         |
++-------------------------+
