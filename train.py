@@ -29,6 +29,7 @@ class Train:
         self.model = DecisionNetworkMultiHead(env_config["entity_dim"], env_config["task_dim"], network_config["transfer_dim"], network_config["entity_num_heads"],
                                               network_config["task_num_heads"], network_config["hidden_dim"], network_config["num_layers"], network_config["mlp_hidden_dim"], env_config["max_entities"], network_config["output_dim"])
         self.model.to(self.device)
+        self.model.apply(init_weights)
 
         self.criterion = nn.CrossEntropyLoss(ignore_index=-1)  # 忽略 -1 标签
         self.optimizer = optim.Adam(
@@ -173,6 +174,18 @@ class Train:
         ModelManager.load_model(self.model, path, self.device)
 
 
+def init_weights(m):
+    if type(m) == nn.Linear:
+        nn.init.kaiming_uniform_(m.weight, nonlinearity='relu')
+    elif type(m) == nn.TransformerEncoderLayer:
+        nn.init.xavier_uniform_(m.self_attn.in_proj_weight)
+        nn.init.constant_(m.self_attn.in_proj_bias, 0)
+        nn.init.xavier_uniform_(m.linear1.weight)
+        nn.init.constant_(m.linear1.bias, 0)
+        nn.init.xavier_uniform_(m.linear2.weight)
+        nn.init.constant_(m.linear2.bias, 0)
+
+
 if __name__ == "__main__":
     env_config = {
         "max_entities": 10,
@@ -194,7 +207,7 @@ if __name__ == "__main__":
     training_config = {
         "num_samples": 1000,
         "batch_size": 32,
-        "lr": 0.001,
+        "lr": 0.0001,
         "num_epochs": 50,
         "patience": 10
     }

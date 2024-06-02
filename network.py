@@ -80,6 +80,7 @@ class DecisionNetworkMultiHead(nn.Module):
 
         return outputs
 
+
     def predict(self, entities, tasks, entity_mask, task_mask):
         outputs = self.forward(entities, tasks, entity_mask, task_mask)
         return torch.argmax(outputs, dim=-1)  # Return indices for prediction
