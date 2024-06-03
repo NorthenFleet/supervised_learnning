@@ -14,7 +14,7 @@ class Train:
         self.data_preprocessor = DataPreprocessor(
             env_config["max_entities"], env_config["max_tasks"], env_config["entity_dim"], env_config["task_dim"])
 
-        if data_file:
+        if data_file and os.path.exists(data_file):
             self.dataset = SampleGenerator(
                 training_config["num_samples"], self.data_preprocessor, data_file)
         else:

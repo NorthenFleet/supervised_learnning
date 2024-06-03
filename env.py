@@ -1,61 +1,22 @@
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
+import os
 import h5py
-from torch.utils.data import Dataset, DataLoader
 import numpy as np
+import torch
+from torch.utils.data import Dataset
 
 
 class SampleGenerator(Dataset):
     def __init__(self, num_samples, data_preprocessor, data_file=None):
         self.num_samples = num_samples
         self.data_preprocessor = data_preprocessor
-        if data_file:
+        self.data = []
+
+        if data_file and os.path.exists(data_file):
             self.load_data(data_file)
         else:
             self.generate_data()
-
-    def generate_data(self):
-        self.data = []
-        for _ in range(self.num_samples):
-            num_entities = np.random.randint(
-                1, self.data_preprocessor.max_entities + 1)
-            entities = np.zeros(
-                (num_entities, self.data_preprocessor.entity_dim))
-            for i in range(num_entities):
-                x = np.random.uniform(0, 100)  # 平台位置 x
-                y = np.random.uniform(0, 100)  # 平台位置 y
-                range_ = np.random.uniform(50, 500)  # 航程
-                speed = np.random.uniform(10, 30)  # 速度
-                detection_range = np.random.uniform(10, 100)  # 探测距离
-                endurance = np.random.uniform(1, 10)  # 可持续时长
-                entities[i] = [x, y, range_, speed, detection_range, endurance]
-
-            # 对 entities 进行标准化
-            entities = (entities - entities.mean(axis=0)) / \
-                (entities.std(axis=0) + 1e-5)
-
-            num_tasks = np.random.randint(
-                1, self.data_preprocessor.max_tasks + 1)
-            tasks = np.zeros((num_tasks, self.data_preprocessor.task_dim))
-            for j in range(num_tasks):
-                priority = np.random.randint(1, 4)  # 任务优先级
-                x = np.random.uniform(0, 100)  # 任务位置 x
-                y = np.random.uniform(0, 100)  # 任务位置 y
-                task_type = np.random.randint(0, 3)  # 任务类型 (侦察=0, 打击=1, 支援=2)
-                tasks[j] = [priority, x, y, task_type]
-
-            # 对 tasks 进行标准化
-            tasks = (tasks - tasks.mean(axis=0)) / (tasks.std(axis=0) + 1e-5)
-
-            tasks = tasks[tasks[:, 0].argsort()[::-1]]
-
-            padded_entities, padded_tasks, entity_mask, task_mask = self.data_preprocessor.pad_and_mask(
-                entities, tasks)
-            targets = self.__getreward__(
-                padded_entities, padded_tasks)  # 计算最佳任务
-            self.data.append((padded_entities, padded_tasks,
-                             entity_mask, task_mask, targets))
+            if data_file:
+                self.save_data(data_file)
 
     def __len__(self):
         return self.num_samples
@@ -63,34 +24,54 @@ class SampleGenerator(Dataset):
     def __getitem__(self, idx):
         return self.data[idx]
 
-    def save_data(self, file_name):
-        with h5py.File(file_name, 'w') as f:
-            for i, (entities, tasks, entity_mask, task_mask, targets) in enumerate(self.data):
-                grp = f.create_group(str(i))
-                grp.create_dataset('entities', data=entities)
-                grp.create_dataset('tasks', data=tasks)
-                grp.create_dataset('entity_mask', data=entity_mask)
-                grp.create_dataset('task_mask', data=task_mask)
-                grp.create_dataset('targets', data=targets)
+    def generate_data(self):
+        for _ in range(self.num_samples):
+            num_entities = np.random.randint(
+                1, self.data_preprocessor.max_entities + 1)
+            entities = np.zeros(
+                (num_entities, self.data_preprocessor.entity_dim))
+            for i in range(num_entities):
+                x = np.random.uniform(0, 100)                 # 平台位置 x
+                y = np.random.uniform(0, 100)                 # 平台位置 y
+                range_ = np.random.uniform(50, 500)           # 航程
+                speed = np.random.uniform(10, 30)             # 速度
+                detection_range = np.random.uniform(10, 100)  # 探测距离
+                endurance = np.random.uniform(1, 10)          # 可持续时长
+                entities[i] = [x, y, range_, speed, detection_range, endurance]
 
-    def load_data(self, file_name):
-        self.data = []
-        with h5py.File(file_name, 'r') as f:
-            for i in range(len(f.keys())):
-                grp = f[str(i)]
-                entities = grp['entities'][:]
-                tasks = grp['tasks'][:]
-                entity_mask = grp['entity_mask'][:]
-                task_mask = grp['task_mask'][:]
-                targets = grp['targets'][:]
-                self.data.append(
-                    (entities, tasks, entity_mask, task_mask, targets))
+            entities = (entities - entities.mean(axis=0)) / \
+                (entities.std(axis=0) + 1e-5)
+
+            num_tasks = np.random.randint(
+                1, self.data_preprocessor.max_tasks + 1)
+            tasks = np.zeros((num_tasks, self.data_preprocessor.task_dim))
+            for j in range(num_tasks):
+                priority = np.random.randint(1, 4)            # 任务优先级
+                x = np.random.uniform(0, 100)                 # 任务位置 x
+                y = np.random.uniform(0, 100)                 # 任务位置 y
+                # 任务类型 (侦察=0, 打击=1, 支援=2)
+                task_type = np.random.randint(0, 3)
+                tasks[j] = [priority, x, y, task_type]
+
+            tasks = (tasks - tasks.mean(axis=0)) / (tasks.std(axis=0) + 1e-5)
+            tasks = tasks[tasks[:, 0].argsort()[::-1]]
+
+            padded_entities, padded_tasks, entity_mask, task_mask = self.data_preprocessor.pad_and_mask(
+                entities, tasks)
+
+            targets = self.__getreward__(padded_entities, padded_tasks)
+
+            self.data.append((padded_entities, padded_tasks,
+                             entity_mask, task_mask, targets))
 
     def __getreward__(self, entities, tasks):
         num_entities = entities.shape[0]
         num_tasks = tasks.shape[0]
+
         task_assignments = [-1] * num_entities
+
         task_scores = np.zeros(num_entities)
+
         entity_assigned = [False] * num_entities
 
         for idx, task in enumerate(tasks):
@@ -110,19 +91,43 @@ class SampleGenerator(Dataset):
                     continue
                 task_distances.append((task_priority, arrival_time, i))
 
-            # 按任务优先级和到达时间排序
             task_distances.sort(key=lambda x: (x[0], x[1]))
-            if task_distances:
+            if task_distances != []:
                 entity_idx = task_distances[0][2]
                 task_scores[entity_idx] = entity[0] / \
                     (entity[1] + 1e-5)  # 任务优先级 / 到达
                 entity_assigned[entity_idx] = True
                 task_assignments[entity_idx] = idx
 
-        # 转换为 tensor，并将任务分配结果转换为整数类型
         task_assignments = torch.tensor(task_assignments, dtype=torch.long)
         task_scores = torch.tensor(task_scores, dtype=torch.float32)
+
         return task_assignments
+
+    def save_data(self, file_name):
+        with h5py.File(file_name, 'w') as f:
+            for i, (entities, tasks, entity_mask, task_mask, targets) in enumerate(self.data):
+                grp = f.create_group(str(i))
+                grp.create_dataset('entities', data=entities.numpy())
+                grp.create_dataset('tasks', data=tasks.numpy())
+                grp.create_dataset('entity_mask', data=entity_mask.numpy())
+                grp.create_dataset('task_mask', data=task_mask.numpy())
+                grp.create_dataset('targets', data=targets.numpy())
+
+    def load_data(self, file_name):
+        with h5py.File(file_name, 'r') as f:
+            for key in f.keys():
+                grp = f[key]
+                entities = torch.tensor(
+                    grp['entities'][:], dtype=torch.float32)
+                tasks = torch.tensor(grp['tasks'][:], dtype=torch.float32)
+                entity_mask = torch.tensor(
+                    grp['entity_mask'][:], dtype=torch.float32)
+                task_mask = torch.tensor(
+                    grp['task_mask'][:], dtype=torch.float32)
+                targets = torch.tensor(grp['targets'][:], dtype=torch.long)
+                self.data.append(
+                    (entities, tasks, entity_mask, task_mask, targets))
 
 
 class DataPreprocessor:
