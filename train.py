@@ -11,7 +11,6 @@ from tensorboard_logger import TensorBoardLogger
 
 class Train:
     def __init__(self, env_config, network_config, training_config):
-        self.training_config = training_config
         self.data_preprocessor = DataPreprocessor(
             env_config["max_entities"], env_config["max_tasks"], env_config["entity_dim"], env_config["task_dim"])
         self.dataset = SampleGenerator(
@@ -103,7 +102,7 @@ class Train:
 
     def train(self):
         best_val_loss = float('inf')
-        patience_counter = self.training_config["patience_counter"]
+        patience_counter = 0
 
         for epoch in range(self.num_epochs):
             self.model.train()
@@ -212,7 +211,6 @@ if __name__ == "__main__":
         "lr": 0.001,
         "num_epochs": 200,
         "patience": 100,
-        "patience_counter": 0
     }
 
     trainer = Train(env_config, network_config, training_config)
