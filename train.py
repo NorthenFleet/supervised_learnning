@@ -11,6 +11,7 @@ from tensorboard_logger import TensorBoardLogger
 
 class Train:
     def __init__(self, env_config, network_config, training_config):
+        self.training_config = training_config
         self.data_preprocessor = DataPreprocessor(
             env_config["max_entities"], env_config["max_tasks"], env_config["entity_dim"], env_config["task_dim"])
         self.dataset = SampleGenerator(
@@ -38,7 +39,8 @@ class Train:
             self.optimizer, mode='min', factor=0.1, patience=5)
 
         self.num_epochs = training_config["num_epochs"]
-        self.patience = training_config.get("patience", 10)  # 默认早停耐心值为10个epoch
+        self.patience = training_config.get(
+            "patience", 100)  # 默认早停耐心值为10个epoch
         self.logger = TensorBoardLogger()
 
         # Log the model graph (structure) to TensorBoard outside of training loop
@@ -101,7 +103,7 @@ class Train:
 
     def train(self):
         best_val_loss = float('inf')
-        patience_counter = 0
+        patience_counter = self.training_config["patience_counter"]
 
         for epoch in range(self.num_epochs):
             self.model.train()
@@ -208,8 +210,9 @@ if __name__ == "__main__":
         "num_samples": 1000,
         "batch_size": 32,
         "lr": 0.001,
-        "num_epochs": 50,
-        "patience": 10
+        "num_epochs": 200,
+        "patience": 100,
+        "patience_counter": 0
     }
 
     trainer = Train(env_config, network_config, training_config)
