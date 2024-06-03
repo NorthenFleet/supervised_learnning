@@ -1,0 +1,57 @@
+输入层：接收实体、任务以及它们的掩码。
+Entities: (batch_size, max_entities, entity_input_dim)
+Tasks: (batch_size, max_tasks, task_input_dim)
+Entity Mask: (batch_size, max_entities)
+Task Mask: (batch_size, max_tasks)
+
+Embedding 层：将输入的实体和任务数据映射到更高维的表示空间，以便后续的 Transformer 编码器处理。
+entity_embedding 和 task_embedding:
+输入： (batch_size, max_entities, entity_input_dim) 或 (batch_size, max_tasks, task_input_dim)
+输出： (batch_size, max_entities, transfer_dim) 或 (batch_size, max_tasks, transfer_dim)
+
+
+维度重排：将数据维度转换为 Transformer 编码器期望的格式，以便对序列数据进行编码。
+entities.permute(1, 0, 2)：将维度转换为 (max_entities, batch_size, transfer_dim)
+tasks.permute(1, 0, 2)：将维度转换为 (max_tasks, batch_size, transfer_dim)
+
+Entities: entities.permute(1, 0, 2)
+输入： (batch_size, max_entities, transfer_dim)
+输出： (max_entities, batch_size, transfer_dim)
+Tasks: tasks.permute(1, 0, 2)
+输入： (batch_size, max_tasks, transfer_dim)
+输出： (max_tasks, batch_size, transfer_dim)
+
+
+Transformer 编码器
+self.entity_encoder：处理 entities
+输入： (max_entities, batch_size, transfer_dim)
+输出： (max_entities, batch_size, transfer_dim)
+self.task_encoder：处理 tasks
+输入： (max_tasks, batch_size, transfer_dim)
+输出： (max_tasks, batch_size, transfer_dim)
+
+池化操作
+最大池化：max(dim=0)[0] 进行最大池化，取每个 batch 中的最大值
+输入： (max_entities, batch_size, transfer_dim)
+输出： (batch_size, transfer_dim)
+输入： (max_tasks, batch_size, transfer_dim)
+输出： (batch_size, transfer_dim)
+
+组合层
+self.combination_layer：nn.Linear(2 * transfer_dim, transfer_dim)
+输入： (batch_size, 2 * transfer_dim)
+输出： (batch_size, transfer_dim)
+
+激活函数
+ReLU
+输入： (batch_size, transfer_dim)
+输出： (batch_size, transfer_dim)
+
+多头输出层
+self.heads：nn.ModuleList
+每个头部：nn.Sequential( nn.Linear(transfer_dim, mlp_hidden_dim), nn.ReLU(), nn.Dropout(p=0.3), nn.Linear(mlp_hidden_dim, output_dim) )
+输入： (batch_size, transfer_dim)
+输出： (batch_size, output_dim)
+Stack 输出：torch.stack(outputs, dim=1)
+输入： [(batch_size, output_dim), (batch_size, output_dim), ...]
+输出： (batch_size, max_entities, output_dim)

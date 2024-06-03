@@ -74,13 +74,10 @@ class DecisionNetworkMultiHead(nn.Module):
         #而环境设置的是每个任务都能被至少一个算子解决
         #感觉得改变网络的输出结构了
         #头数得变成任务数量了
-        
+
         outputs = []
         for i in range(len(self.heads)):
             output = self.heads[i](combined_output)
-            if torch.isnan(output).any():
-                print("NaN detected in outputs")
-                return None  # 或者采取其他适当的措施
             # Apply mask before softmax # 这个掩码只是
             output = output.masked_fill(task_mask.bool(), float('-inf'))#为什么取反，掩码为1的不才会被掩掉吗
             if torch.isnan(output).any():
