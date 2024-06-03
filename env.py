@@ -118,6 +118,12 @@ class DataPreprocessor:
         entity_mask[:num_entities] = 1
         task_mask[:num_tasks] = 1
 
+        # 标准化和归一化数据
+        entities_padded = (entities_padded - np.mean(entities_padded,
+                           axis=0)) / (np.std(entities_padded, axis=0) + 1e-5)
+        tasks_padded = (tasks_padded - np.mean(tasks_padded, axis=0)
+                        ) / (np.std(tasks_padded, axis=0) + 1e-5)
+
         return (
             torch.tensor(entities_padded, dtype=torch.float32),
             torch.tensor(tasks_padded, dtype=torch.float32),
