@@ -73,8 +73,8 @@ class DecisionNetworkMultiHead(nn.Module):
         outputs = []
         for i in range(len(self.heads)):
             output = self.heads[i](combined_output)
-            # Apply mask before softmax
-            output = output.masked_fill(~task_mask.bool(), float('-inf'))
+            # # Apply mask before softmax
+            # output = output.masked_fill(~task_mask.bool(), float('-inf'))
 
             # 处理无效行
             if torch.isinf(output).all(dim=-1).any():

@@ -7,6 +7,7 @@ from env import SampleGenerator, DataPreprocessor
 from network import DecisionNetworkMultiHead
 from model_manager import ModelManager
 from tensorboard_logger import TensorBoardLogger
+import os
 
 
 class Train:
@@ -56,8 +57,8 @@ class Train:
         dummy_task_mask = torch.ones(
             (training_config["batch_size"], env_config["max_tasks"])).to(self.device)
 
-        self.logger.log_graph(
-            self.model, (dummy_entities, dummy_tasks, dummy_entity_mask, dummy_task_mask))
+        # self.logger.log_graph(
+        #     self.model, (dummy_entities, dummy_tasks, dummy_entity_mask, dummy_task_mask))
 
     def collate_fn(self, batch):
         entities, tasks, entity_mask, task_mask, task_assignments = zip(*batch)
@@ -119,7 +120,7 @@ class Train:
                 if outputs is None:
                     continue
 
-                outputs = torch.stack(outputs, dim=1)
+                # outputs = torch.stack(outputs, dim=1)
                 assert outputs.shape[:-
                                      1] == task_assignments.shape, "输出和任务分配的维度不匹配"
 
