@@ -32,7 +32,7 @@ class DecisionNetworkMultiHead(nn.Module):
                 nn.Linear(transfer_dim, mlp_hidden_dim),
                 nn.ReLU(),
                 nn.Dropout(p=0.3),
-                nn.Linear(mlp_hidden_dim, output_dim)
+                nn.Linear(mlp_hidden_dim, output_dim + 1)  # 输出维度增加1
             ) for _ in range(max_entities)
         ])
 
@@ -50,23 +50,24 @@ class DecisionNetworkMultiHead(nn.Module):
         # Encoding
         encoded_entities = self.entity_encoder(
             entities, src_key_padding_mask=entity_mask.bool()).max(dim=0)[0]
-        # 检查NaN
         if torch.isnan(encoded_entities).any():
-            print("NaN detected in outputs")
-            return None  # 或者采取其他适当的措施
+            print("NaN detected in encoded_entities")
+            return None
 
         encoded_tasks = self.task_encoder(
             tasks, src_key_padding_mask=task_mask.bool()).max(dim=0)[0]
-
-        # 检查NaN
         if torch.isnan(encoded_tasks).any():
-            print("NaN detected in outputs")
-            return None  # 或者采取其他适当的措施
+            print("NaN detected in encoded_tasks")
+            return None
 
         # Combine entity and task encodings
         combined_output = torch.cat((encoded_entities, encoded_tasks), dim=-1)
         combined_output = self.combination_layer(combined_output)
         combined_output = F.relu(combined_output)
+
+        if torch.isnan(combined_output).any():
+            print("NaN detected in combined_output")
+            return None
 
         # Multi-head outputs
         outputs = []
@@ -74,6 +75,7 @@ class DecisionNetworkMultiHead(nn.Module):
             output = self.heads[i](combined_output)
             # Apply mask before softmax
             output = output.masked_fill(~task_mask.bool(), float('-inf'))
+
             # 处理无效行
             if torch.isinf(output).all(dim=-1).any():
                 output[torch.isinf(output).all(dim=-1)] = 0
@@ -82,12 +84,11 @@ class DecisionNetworkMultiHead(nn.Module):
             outputs.append(output)
 
         outputs = torch.stack(outputs, dim=1)
+        if torch.isnan(outputs).any():
+            print("NaN detected in outputs")
+            return None
 
         return outputs
-
-    def predict(self, entities, tasks, entity_mask, task_mask):
-        outputs = self.forward(entities, tasks, entity_mask, task_mask)
-        return torch.argmax(outputs, dim=-1)  # Return indices for prediction
 
     def predict(self, entities, tasks, entity_mask, task_mask):
         outputs = self.forward(entities, tasks, entity_mask, task_mask)

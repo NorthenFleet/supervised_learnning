@@ -189,8 +189,8 @@ def init_weights(m):
 
 if __name__ == "__main__":
     env_config = {
-        "max_entities": 10,
-        "max_tasks": 5,
+        "max_entities": 20,
+        "max_tasks": 15,
         "entity_dim": 6,  # 平台位置 (x, y), 航程, 速度, 探测距离, 可持续时长
         "task_dim": 4    # 任务优先级, 任务位置 (x, y), 任务类型
     }
