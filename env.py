@@ -95,7 +95,6 @@ class SampleGenerator(Dataset):
 
         return task_assignments
 
-
 class DataPreprocessor:
     def __init__(self, max_entities, max_tasks, entity_dim, task_dim):
         self.max_entities = max_entities
