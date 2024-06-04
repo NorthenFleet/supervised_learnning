@@ -120,7 +120,6 @@ if __name__ == "__main__":
     }
 
     ray.init(num_cpus=2, num_gpus=2)  # 在服务器上使用
-    # ray.init()  # 在 Mac M1 芯片上使用
 
     trainer = TrainModel(env_config, network_config, training_config)
 
