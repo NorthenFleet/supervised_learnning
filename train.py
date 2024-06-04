@@ -57,6 +57,8 @@ class Train:
         dummy_task_mask = torch.ones(
             (training_config["batch_size"], env_config["max_tasks"])).to(self.device)
 
+#        self.logger.log_graph(
+  #          self.model, (dummy_entities, dummy_tasks, dummy_entity_mask, dummy_task_mask))
         # self.logger.log_graph(
         #     self.model, (dummy_entities, dummy_tasks, dummy_entity_mask, dummy_task_mask))
 

@@ -37,12 +37,13 @@ class DecisionNetworkMultiHead(nn.Module):
         ])
 
     def forward(self, entities, tasks, entity_mask, task_mask):
+        '''
         # 检查并处理 entity_mask 和 task_mask 中全为 1 的情况
         if torch.any(entity_mask.sum(dim=1) == entity_mask.size(1)):
             entity_mask[entity_mask.sum(dim=1) == entity_mask.size(1)] = 0
         if torch.any(task_mask.sum(dim=1) == task_mask.size(1)):
             task_mask[task_mask.sum(dim=1) == task_mask.size(1)] = 0
-
+        '''
         # Embedding and permute for transformers
         entities = self.entity_embedding(entities).permute(1, 0, 2)
         tasks = self.task_embedding(tasks).permute(1, 0, 2)
@@ -81,6 +82,9 @@ class DecisionNetworkMultiHead(nn.Module):
                 output[torch.isinf(output).all(dim=-1)] = 0
 
             output = F.softmax(output, dim=-1)
+            if torch.isnan(output).any():
+                print("NaN detected in outputs")
+                return None  # 或者采取其他适当的措施
             outputs.append(output)
 
         outputs = torch.stack(outputs, dim=1)

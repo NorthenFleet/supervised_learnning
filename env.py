@@ -22,44 +22,41 @@ class SampleGenerator(Dataset):
         return self.num_samples
 
     def __getitem__(self, idx):
-        return self.data[idx]
+        num_entities = np.random.randint(
+            1, self.data_preprocessor.max_entities + 1)
+        entities = np.zeros((num_entities, self.data_preprocessor.entity_dim))
+        for i in range(num_entities):
+            x = np.random.uniform(0, 100)                 # 平台位置 x
+            y = np.random.uniform(0, 100)                 # 平台位置 y
+            range_ = np.random.uniform(50, 500)           # 航程
+            speed = np.random.uniform(10, 30)             # 速度
+            detection_range = np.random.uniform(10, 100)  # 探测距离
+            endurance = np.random.uniform(1, 10)          # 可持续时长
+            entities[i] = [x, y, range_, speed, detection_range, endurance]
 
-    def generate_data(self):
-        for _ in range(self.num_samples):
-            num_entities = np.random.randint(
-                1, self.data_preprocessor.max_entities + 1)
-            entities = np.zeros(
-                (num_entities, self.data_preprocessor.entity_dim))
-            for i in range(num_entities):
-                x = np.random.uniform(0, 100)                 # 平台位置 x
-                y = np.random.uniform(0, 100)                 # 平台位置 y
-                range_ = np.random.uniform(50, 500)           # 航程
-                speed = np.random.uniform(10, 30)             # 速度
-                detection_range = np.random.uniform(10, 100)  # 探测距离
-                endurance = np.random.uniform(1, 10)          # 可持续时长
-                entities[i] = [x, y, range_, speed, detection_range, endurance]
+        # 对 entities 进行标准化
+        entities = (entities - entities.mean(axis=0)) / \
+            (entities.std(axis=0) + 1e-5)
 
-            entities = (entities - entities.mean(axis=0)) / \
-                (entities.std(axis=0) + 1e-5)
+        num_tasks = np.random.randint(1, self.data_preprocessor.max_tasks + 1)
+        tasks = np.zeros((num_tasks, self.data_preprocessor.task_dim))
+        for j in range(num_tasks):
+            priority = np.random.randint(1, 4)            # 任务优先级
+            x = np.random.uniform(0, 100)                 # 任务位置 x
+            y = np.random.uniform(0, 100)                 # 任务位置 y
+            # 任务类型 (侦察=0, 打击=1, 支援=2)
+            task_type = np.random.randint(0, 3)
+            tasks[j] = [priority, x, y, task_type]
 
-            num_tasks = np.random.randint(
-                1, self.data_preprocessor.max_tasks + 1)
-            tasks = np.zeros((num_tasks, self.data_preprocessor.task_dim))
-            for j in range(num_tasks):
-                priority = np.random.randint(1, 4)            # 任务优先级
-                x = np.random.uniform(0, 100)                 # 任务位置 x
-                y = np.random.uniform(0, 100)                 # 任务位置 y
-                # 任务类型 (侦察=0, 打击=1, 支援=2)
-                task_type = np.random.randint(0, 3)
-                tasks[j] = [priority, x, y, task_type]
+        # 对 tasks 进行标准化
+        tasks = (tasks - tasks.mean(axis=0)) / (tasks.std(axis=0) + 1e-5)
 
-            tasks = (tasks - tasks.mean(axis=0)) / (tasks.std(axis=0) + 1e-5)
-            tasks = tasks[tasks[:, 0].argsort()[::-1]]
+        tasks = tasks[tasks[:, 0].argsort()[::-1]]
 
             padded_entities, padded_tasks, entity_mask, task_mask = self.data_preprocessor.pad_and_mask(
                 entities, tasks)
 
-            targets = self.__getreward__(padded_entities, padded_tasks)
+        targets = self.__getreward__(padded_entities, padded_tasks)  # 计算最佳任务
 
             self.data.append((padded_entities, padded_tasks,
                              entity_mask, task_mask, targets))
@@ -103,6 +100,30 @@ class SampleGenerator(Dataset):
         task_scores = torch.tensor(task_scores, dtype=torch.float32)
 
         return task_assignments
+    
+    def task_generate(self,entities):
+        priority = np.random.randint(1, 4)            # 任务优先级
+        x = np.random.uniform(0, 100)                 # 任务位置 x
+        y = np.random.uniform(0, 100)                 # 任务位置 y
+        task_position = [x,y]  # 任务位置 (x, y)
+        # 任务类型 (侦察=0, 打击=1, 支援=2)
+        task_type = np.random.randint(0, 3)
+        flag = False
+        for entity in entities:
+            entity_position = entity[:2]  # 平台位置 (x, y)
+            entity_speed = entity[3]  # 平台速度
+            distance = np.linalg.norm(entity_position - task_position)
+            if distance < entity[2]:
+                flag = True
+                break
+            arrival_time = distance / entity_speed
+            if arrival_time < entity[5]:
+                flag = True
+                break
+        if flag == True:
+            return [priority, x, y, task_type]
+        else:
+            return False
 
     def save_data(self, file_name):
         with h5py.File(file_name, 'w') as f:
@@ -151,6 +172,9 @@ class DataPreprocessor:
         task_mask = np.zeros(self.max_tasks)
         entity_mask[:num_entities] = 1
         task_mask[:num_tasks] = 1
+        # 取反，将1变为0，0变为1
+        entity_mask = ~entity_mask.astype(bool)
+        task_mask = ~task_mask.astype(bool)
 
         return (
             torch.tensor(entities_padded, dtype=torch.float32),
