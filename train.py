@@ -176,8 +176,8 @@ class Train:
 
 if __name__ == "__main__":
     env_config = {
-        "max_entities": 20,
-        "max_tasks": 15,
+        "max_entities": 10,
+        "max_tasks": 6,
         "entity_dim": 6,
         "task_dim": 4
     }
@@ -193,7 +193,7 @@ if __name__ == "__main__":
     }
 
     training_config = {
-        "num_samples": 1000,
+        "num_samples": 1024,
         "batch_size": 32,
         "lr": 0.001,
         "num_epochs": 50,
