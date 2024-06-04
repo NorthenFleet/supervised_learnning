@@ -82,8 +82,9 @@ class Train:
                     continue
 
                 loss = 0
-                for i, output in enumerate(outputs):
-                    loss += self.criterion(output, targets[:, i])
+                for i in range(outputs.shape[1]):
+                    loss += self.criterion(outputs[:, i, :],
+                                           targets[:, i])
 
                 total_val_loss += loss.item()
 
@@ -120,13 +121,20 @@ class Train:
                 if outputs is None:
                     continue
 
-                # outputs = torch.stack(outputs, dim=1)
-                assert outputs.shape[:-
-                                     1] == task_assignments.shape, "输出和任务分配的维度不匹配"
-
+                # Ensure valid_task_assignments and valid_outputs have correct shapes
                 valid_mask = task_assignments != -1
                 valid_task_assignments = task_assignments[valid_mask]
                 valid_outputs = outputs[valid_mask]
+
+                # Check dimensions
+                if valid_task_assignments.dim() == 1:
+                    valid_task_assignments = valid_task_assignments.unsqueeze(
+                        1)
+                if valid_outputs.dim() == 2:
+                    valid_outputs = valid_outputs.unsqueeze(1)
+
+                assert valid_outputs.shape[:-
+                                           1] == valid_task_assignments.shape, "Output and task assignment dimensions do not match"
 
                 loss = 0
                 for i in range(valid_outputs.shape[1]):
