@@ -143,7 +143,7 @@ class Train:
                 assert valid_outputs.shape[:-1] == valid_task_assignments.shape
                 loss = 0
                 for i in range(valid_outputs.shape[2]):
-                    loss += self.criterion(valid_outputs[:, 1, i],
+                    loss += self.criterion(valid_outputs[:, 0, i],
                                            valid_task_assignments[:, i])
 
                 loss.backward()
@@ -196,7 +196,7 @@ if __name__ == "__main__":
     }
 
     training_config = {
-        "num_samples": 1000,
+        "num_samples": 1024,
         "batch_size": 32,
         "lr": 0.001,
         "num_epochs": 50,
