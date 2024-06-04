@@ -1,35 +1,36 @@
 import torch
+from model_manager import ModelManager
 from network import DecisionNetworkMultiHead
 
 
 class InferenceRunner:
-    def __init__(self):
+    def __init__(self, env_config):
         self.device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu")
 
         network_config = {
-            "model_dim": 128,
-            "num_heads": 4,
-            "hidden_dim": 512,
-            "num_layers": 2,
-            "mlp_hidden_dim": 128,
-            "output_dim": 5
+        "entity_num_heads": 2,
+        "task_num_heads": 2,
+        "hidden_dim": 64,
+        "num_layers": 2,
+        "mlp_hidden_dim": 128,
+        "output_dim": 5,  # 增加一个任务编号
+        "transfer_dim": 128
         }
 
         model_path = "best_model.pth"
 
-
-        
-
         # 初始化模型
         self.model = DecisionNetworkMultiHead(
-            env_config["entity_dim"], env_config["task_dim"], network_config["model_dim"],
-            network_config["num_heads"], network_config["hidden_dim"], network_config["num_layers"],
-            network_config["mlp_hidden_dim"], env_config["max_entities"], network_config["output_dim"]
-        )
+            env_config["entity_dim"], env_config["task_dim"], 
+            network_config["transfer_dim"],network_config["entity_num_heads"], 
+            network_config["task_num_heads"], network_config["hidden_dim"], 
+            network_config["num_layers"], network_config["mlp_hidden_dim"], 
+            env_config["max_entities"], network_config["output_dim"] + 1)  # 增加一个任务编号
+
 
         # 加载训练好的模型权重
-        self.model.load_state_dict(torch.load(model_path))
+        self.load_model(torch.load(model_path))
         self.model.to(self.device)
         self.model.eval()
 
@@ -50,5 +51,10 @@ class InferenceRunner:
 
         return output
 
+    def save_model(self, path):
+        ModelManager.save_model(self.model, path)
+
+    def load_model(self, path):
+        ModelManager.load_model(self.model, path, self.device)
 
 

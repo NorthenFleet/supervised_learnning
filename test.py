@@ -1,7 +1,7 @@
 from env import SampleGenerator, DataPreprocessor
 from runner import InferenceRunner
 
-class Test():
+class Data_Sample():
     def __init__(self, env_config) -> None:
         # 初始化数据预处理器
         self.data_preprocessor = DataPreprocessor(
@@ -40,11 +40,16 @@ if __name__ == "__main__":
         "entity_dim": 6,
         "task_dim": 4
         }
+    data_sample = Data_Sample(env_config)
+
      # 创建推理运行器
-    runner = InferenceRunner()
+    runner = InferenceRunner(env_config)
+
 
     # 生成一个样本
-    padded_entities, padded_tasks, entity_mask, task_mask, targets = runner.generate_sample()
+    padded_entities, padded_tasks, entity_mask, task_mask, targets = data_sample.generate_sample()
+    print(padded_entities)
+    print(padded_tasks)
 
     # 运行推理
     output = runner.run_inference(

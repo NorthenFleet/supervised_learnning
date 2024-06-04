@@ -34,8 +34,12 @@ class Train:
         self.device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu")
 
-        self.model = DecisionNetworkMultiHead(env_config["entity_dim"], env_config["task_dim"], network_config["transfer_dim"],
-                                              network_config["entity_num_heads"], network_config["task_num_heads"], network_config["hidden_dim"], network_config["num_layers"], network_config["mlp_hidden_dim"], env_config["max_entities"], network_config["output_dim"] + 1)  # 增加一个任务编号
+        self.model = DecisionNetworkMultiHead(
+            env_config["entity_dim"], env_config["task_dim"], network_config["transfer_dim"],
+            network_config["entity_num_heads"], network_config["task_num_heads"], 
+            network_config["hidden_dim"], network_config["num_layers"], 
+            network_config["mlp_hidden_dim"], env_config["max_entities"], 
+            network_config["output_dim"] + 1)  # 增加一个任务编号
         self.model.to(self.device)
 
         self.criterion = nn.CrossEntropyLoss(ignore_index=-1)
