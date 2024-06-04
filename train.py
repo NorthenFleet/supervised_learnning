@@ -115,7 +115,6 @@ class Train:
             self.model.train()
             total_loss = 0.0
             for entities, tasks, entity_mask, task_mask, task_assignments in self.dataloader:
-
                 entities = entities.to(self.device)
                 tasks = tasks.to(self.device)
                 entity_mask = entity_mask.to(self.device)
@@ -133,18 +132,10 @@ class Train:
                 valid_task_assignments = task_assignments[valid_mask]
                 valid_outputs = outputs[valid_mask]
 
-                # Check dimensions
-                if valid_task_assignments.dim() == 1:
-                    valid_task_assignments = valid_task_assignments.unsqueeze(
-                        1)
-                if valid_outputs.dim() == 2:
-                    valid_outputs = valid_outputs.unsqueeze(1)
-
-                assert valid_outputs.shape[:-1] == valid_task_assignments.shape
                 loss = 0
-                for i in range(valid_outputs.shape[2]):
-                    loss += self.criterion(valid_outputs[:, 0, i],
-                                           valid_task_assignments[:, i])
+                for i in range(valid_outputs.shape[0]):
+                    loss += self.criterion(valid_outputs[i],
+                                           valid_task_assignments[i])
 
                 loss.backward()
 

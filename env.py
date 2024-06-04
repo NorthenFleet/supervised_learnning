@@ -39,9 +39,6 @@ class SampleGenerator(Dataset):
                 endurance = np.random.uniform(1, 10)          # 可持续时长
                 entities[i] = [x, y, range_, speed, detection_range, endurance]
 
-            entities = (entities - entities.mean(axis=0)) / \
-                (entities.std(axis=0) + 1e-5)
-
             num_tasks = np.random.randint(
                 1, self.data_preprocessor.max_tasks + 1)
             tasks = np.zeros((num_tasks, self.data_preprocessor.task_dim))
@@ -53,13 +50,19 @@ class SampleGenerator(Dataset):
                 task_type = np.random.randint(0, 3)
                 tasks[j] = [priority, x, y, task_type]
 
-            tasks = (tasks - tasks.mean(axis=0)) / (tasks.std(axis=0) + 1e-5)
             tasks = tasks[tasks[:, 0].argsort()[::-1]]
 
             padded_entities, padded_tasks, entity_mask, task_mask = self.data_preprocessor.pad_and_mask(
                 entities, tasks)
 
             targets = self.__getreward__(padded_entities, padded_tasks)
+
+            entities = (entities - entities.mean(axis=0)) / \
+                (entities.std(axis=0) + 1e-5)
+            tasks = (tasks - tasks.mean(axis=0)) / (tasks.std(axis=0) + 1e-5)
+
+            padded_entities, padded_tasks, entity_mask, task_mask = self.data_preprocessor.pad_and_mask(
+                entities, tasks)
 
             self.data.append((padded_entities, padded_tasks,
                              entity_mask, task_mask, targets))
@@ -151,6 +154,10 @@ class DataPreprocessor:
         task_mask = np.zeros(self.max_tasks)
         entity_mask[:num_entities] = 1
         task_mask[:num_tasks] = 1
+
+        # 对掩码进行取反操作
+        entity_mask = np.logical_not(entity_mask).astype(entity_mask.dtype)
+        task_mask = np.logical_not(task_mask).astype(task_mask.dtype)
 
         return (
             torch.tensor(entities_padded, dtype=torch.float32),

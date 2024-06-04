@@ -77,8 +77,14 @@ class DecisionNetworkMultiHead(nn.Module):
             # # Apply mask before softmax
             # output = output.masked_fill(~task_mask.bool(), float('-inf'))
 
-            output = F.softmax(output, dim=-1)
+            # 处理无效行
+            if torch.isinf(output).all(dim=-1).any():
+                output[torch.isinf(output).all(dim=-1)] = 0
 
+            output = F.softmax(output, dim=-1)
+            if torch.isnan(output).any():
+                print("NaN detected in outputs")
+                return None  # 或者采取其他适当的措施
             outputs.append(output)
 
         outputs = torch.stack(outputs, dim=1)
