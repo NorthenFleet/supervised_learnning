@@ -36,9 +36,9 @@ class Train:
 
         self.model = DecisionNetworkMultiHead(
             env_config["entity_dim"], env_config["task_dim"], network_config["transfer_dim"],
-            network_config["entity_num_heads"], network_config["task_num_heads"], 
-            network_config["hidden_dim"], network_config["num_layers"], 
-            network_config["mlp_hidden_dim"], env_config["max_entities"], 
+            network_config["entity_num_heads"], network_config["task_num_heads"],
+            network_config["hidden_dim"], network_config["num_layers"],
+            network_config["mlp_hidden_dim"], env_config["max_entities"],
             network_config["output_dim"] + 1)  # 增加一个任务编号
         self.model.to(self.device)
 
@@ -60,7 +60,7 @@ class Train:
             (training_config["batch_size"], env_config["max_entities"])).to(self.device)
         dummy_task_mask = torch.ones(
             (training_config["batch_size"], env_config["max_tasks"])).to(self.device)
-        
+
         # self.logger.log_graph(
         #     self.model, (dummy_entities, dummy_tasks, dummy_entity_mask, dummy_task_mask))
 
@@ -115,8 +115,11 @@ class Train:
             self.model.train()
             total_loss = 0.0
             for entities, tasks, entity_mask, task_mask, task_assignments in self.dataloader:
-                entities, tasks, entity_mask, task_mask = entities.to(self.device), tasks.to(
-                    self.device), entity_mask.to(self.device), task_mask.to(self.device)
+
+                entities = entities.to(self.device)
+                tasks = tasks.to(self.device)
+                entity_mask = entity_mask.to(self.device)
+                task_mask = task_mask.to(self.device)
                 task_assignments = task_assignments.to(self.device)
 
                 self.optimizer.zero_grad()
