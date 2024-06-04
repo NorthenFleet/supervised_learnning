@@ -137,8 +137,8 @@ class Train:
                                            1] == valid_task_assignments.shape, "Output and task assignment dimensions do not match"
 
                 loss = 0
-                for i in range(valid_outputs.shape[1]):
-                    loss += self.criterion(valid_outputs[:, i, :],
+                for i in range(valid_outputs.shape[2]):
+                    loss += self.criterion(valid_outputs[:, 1, i],
                                            valid_task_assignments[:, i])
 
                 loss.backward()
@@ -175,7 +175,7 @@ class Train:
 if __name__ == "__main__":
     env_config = {
         "max_entities": 20,
-        "max_tasks": 15,
+        "max_tasks": 10,
         "entity_dim": 6,
         "task_dim": 4
     }
