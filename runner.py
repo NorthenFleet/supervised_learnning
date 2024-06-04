@@ -9,28 +9,27 @@ class InferenceRunner:
             "cuda" if torch.cuda.is_available() else "cpu")
 
         network_config = {
-        "entity_num_heads": 2,
-        "task_num_heads": 2,
-        "hidden_dim": 64,
-        "num_layers": 2,
-        "mlp_hidden_dim": 128,
-        "output_dim": 5,  # 增加一个任务编号
-        "transfer_dim": 128
+            "entity_num_heads": 2,
+            "task_num_heads": 2,
+            "hidden_dim": 64,
+            "num_layers": 2,
+            "mlp_hidden_dim": 128,
+            "output_dim": 5,  # 增加一个任务编号
+            "transfer_dim": 128
         }
 
         model_path = "best_model.pth"
 
         # 初始化模型
         self.model = DecisionNetworkMultiHead(
-            env_config["entity_dim"], env_config["task_dim"], 
-            network_config["transfer_dim"],network_config["entity_num_heads"], 
-            network_config["task_num_heads"], network_config["hidden_dim"], 
-            network_config["num_layers"], network_config["mlp_hidden_dim"], 
+            env_config["entity_dim"], env_config["task_dim"],
+            network_config["transfer_dim"], network_config["entity_num_heads"],
+            network_config["task_num_heads"], network_config["hidden_dim"],
+            network_config["num_layers"], network_config["mlp_hidden_dim"],
             env_config["max_entities"], network_config["output_dim"] + 1)  # 增加一个任务编号
 
-
         # 加载训练好的模型权重
-        self.load_model(torch.load(model_path))
+        self.load_model(model_path)
         self.model.to(self.device)
         self.model.eval()
 
@@ -45,9 +44,8 @@ class InferenceRunner:
         if task_mask.ndim == 1:
             task_mask = task_mask.unsqueeze(0).to(self.device)
 
-        # 前向推理
-        with torch.no_grad():
-            output = self.model(entities, tasks, entity_mask, task_mask)
+        output = self.model.predict(
+            entities, tasks, entity_mask, task_mask)
 
         return output
 
@@ -56,5 +54,3 @@ class InferenceRunner:
 
     def load_model(self, path):
         ModelManager.load_model(self.model, path, self.device)
-
-
