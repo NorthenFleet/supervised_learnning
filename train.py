@@ -137,9 +137,7 @@ class Train:
                 if valid_outputs.dim() == 2:
                     valid_outputs = valid_outputs.unsqueeze(1)
 
-                assert valid_outputs.shape[:-
-                                           1] == valid_task_assignments.shape, "Output and task assignment dimensions do not match"
-
+                assert valid_outputs.shape[:-1] == valid_task_assignments.shape
                 loss = 0
                 for i in range(valid_outputs.shape[2]):
                     loss += self.criterion(valid_outputs[:, 1, i],
