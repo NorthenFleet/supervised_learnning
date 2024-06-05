@@ -26,6 +26,8 @@ class DecisionNetworkMultiHead(nn.Module):
             transfer_dim, task_num_heads, hidden_dim, num_layers)
 
         self.combination_layer = nn.Linear(2 * transfer_dim, transfer_dim)
+        self.hidden_layer = nn.Linear(transfer_dim, transfer_dim)
+        self.activation = nn.ReLU()
 
         self.heads = nn.ModuleList([
             nn.Sequential(
@@ -58,23 +60,21 @@ class DecisionNetworkMultiHead(nn.Module):
         # Combine entity and task encodings
         combined_output = torch.cat((encoded_entities, encoded_tasks), dim=-1)
         combined_output = self.combination_layer(combined_output)
-        combined_output = F.relu(combined_output)
+        combined_output = self.activation(combined_output)
+        # combined_output = self.hidden_layer(combined_output)
+        # combined_output = self.activation(combined_output)
 
         # Multi-head outputs
         outputs = []
         for i in range(len(self.heads)):
             output = self.heads[i](combined_output)
-            # # Apply mask before softmax
-            # output = output.masked_fill(~task_mask.bool(), float('-inf'))
 
             # 处理无效行
             if torch.isinf(output).all(dim=-1).any():
                 output[torch.isinf(output).all(dim=-1)] = 0
 
             output = F.softmax(output, dim=-1)
-            if torch.isnan(output).any():
-                print("NaN detected in outputs")
-                return None  # 或者采取其他适当的措施
+
             outputs.append(output)
 
         outputs = torch.stack(outputs, dim=1)

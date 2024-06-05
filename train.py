@@ -193,8 +193,8 @@ if __name__ == "__main__":
         "num_samples": 1024,
         "batch_size": 32,
         "lr": 0.001,
-        "num_epochs": 500,
-        "patience": 100
+        "num_epochs": 100000,
+        "patience": 100000
     }
 
     trainer = Train(env_config, network_config,
