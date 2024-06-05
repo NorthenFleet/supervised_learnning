@@ -2,6 +2,8 @@
 *.tmp       # 忽略所有 .tmp 文件
 *.pyc       # 忽略所有 .pyc 文件
 *.pth       # 忽略所有 .pth 文件
+best_model.pth   
+train_data.h5
 
 /__pycache__/          # 忽略 dist 目录
 /runs/
