@@ -127,16 +127,11 @@ class Train:
                 if outputs is None:
                     continue
 
-                # Ensure valid_task_assignments and valid_outputs have correct shapes
-                valid_mask = task_assignments != -1
-                valid_task_assignments = task_assignments[valid_mask]
-                valid_outputs = outputs[valid_mask]
-
                 # 计算每个平台对应任务的损失
                 loss = 0
-                for i in range(valid_outputs.shape[1]):
-                    loss += self.criterion(valid_outputs[:, i, :],
-                                           valid_task_assignments[:, i])
+                for i in range(outputs.shape[1]):
+                    loss += self.criterion(outputs[:, i, :],
+                                           task_assignments[:, i])
 
                 loss.backward()
 
