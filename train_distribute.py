@@ -193,8 +193,8 @@ if __name__ == "__main__":
         "num_samples": 1024,
         "batch_size": 32,
         "lr": 0.001,
-        "num_epochs": 50,
-        "patience": 10
+        "num_epochs": 500,
+        "patience": 100
     }
 
     main(env_config, network_config, training_config, data_file="train_data.h5")

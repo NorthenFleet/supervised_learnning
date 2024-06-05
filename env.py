@@ -71,7 +71,7 @@ class SampleGenerator(Dataset):
         num_entities = entities.shape[0]
         num_tasks = tasks.shape[0]
 
-        task_assignments = [-1] * num_entities
+        task_assignments = [num_tasks] * num_entities
 
         task_scores = np.zeros(num_entities)
 
