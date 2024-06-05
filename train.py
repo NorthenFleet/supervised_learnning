@@ -173,8 +173,8 @@ class Train:
 
 if __name__ == "__main__":
     env_config = {
-        "max_entities": 10,
-        "max_tasks": 6,
+        "max_entities": 5,
+        "max_tasks": 5,
         "entity_dim": 6,
         "task_dim": 4
     }

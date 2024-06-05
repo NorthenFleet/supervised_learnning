@@ -26,8 +26,11 @@ class SampleGenerator(Dataset):
 
     def generate_data(self):
         for _ in range(self.num_samples):
-            num_entities = np.random.randint(
-                1, self.data_preprocessor.max_entities + 1)
+            # num_entities = np.random.randint(
+            #     1, self.data_preprocessor.max_entities + 1)
+
+            num_entities = 5
+
             entities = np.zeros(
                 (num_entities, self.data_preprocessor.entity_dim))
             for i in range(num_entities):
@@ -35,12 +38,13 @@ class SampleGenerator(Dataset):
                 y = np.random.uniform(0, 100)                 # 平台位置 y
                 range_ = np.random.uniform(50, 500)           # 航程
                 speed = np.random.uniform(10, 30)             # 速度
-                detection_range = np.random.uniform(10, 100)  # 探测距离
+                detection_range = np.random.uniform(80, 100)  # 探测距离
                 endurance = np.random.uniform(1, 10)          # 可持续时长
                 entities[i] = [x, y, range_, speed, detection_range, endurance]
 
-            num_tasks = np.random.randint(
-                1, self.data_preprocessor.max_tasks + 1)
+            # num_tasks = np.random.randint(
+            #     1, self.data_preprocessor.max_tasks + 1)
+            num_tasks = 5
             tasks = np.zeros((num_tasks, self.data_preprocessor.task_dim))
             for j in range(num_tasks):
                 priority = np.random.randint(1, 4)            # 任务优先级
