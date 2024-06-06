@@ -115,7 +115,7 @@ class SampleGenerator(Dataset):
 
         return task_assignments
 
-    def get_optimizer(self, entities, tasks):
+    def get_target(self, entities, tasks):
         return self.__getreward__(entities, tasks)
 
     def save_data(self, file_name):

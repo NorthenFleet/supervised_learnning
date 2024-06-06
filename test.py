@@ -46,4 +46,7 @@ if __name__ == "__main__":
     network_output = runner.run_inference(
         padded_entities, padded_tasks, entity_mask, task_mask)
 
+    target = data_sample.sample_generator.get_target(
+        padded_entities, padded_tasks, entity_mask, task_mask)
+
     print(network_output[0])
