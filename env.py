@@ -16,14 +16,6 @@ class SampleGenerator(Dataset):
             config["max_entities"], config["max_tasks"], str(
                 config["undefined"]))
 
-        # if data_file and os.path.exists(data_file):
-        #     self.dataset = SampleGenerator(
-        #         env_config["num_samples"], env_config, self.data_preprocessor)
-        # else:
-        #     self.dataset = SampleGenerator(
-        #         env_config["num_samples"], env_config, self.data_preprocessor)
-        #     self.dataset.save_data("train_data.h5")
-
         if data_path and os.path.exists(data_path):
             self.load_data(data_path)
         else:

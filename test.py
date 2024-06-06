@@ -18,8 +18,8 @@ class Data_Sample():
 
     def generate_sample(self):
         # 获取一个样本
-        sample = self.sample_generator[0]
-        padded_entities, padded_tasks, entity_mask, task_mask, targets = sample
+        sample = self.sample_generator[0:10]
+        padded_entities, padded_tasks, entity_mask, task_mask, targets = sample[1]
 
         return padded_entities, padded_tasks, entity_mask, task_mask, targets
 
