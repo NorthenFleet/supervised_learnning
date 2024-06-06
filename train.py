@@ -50,6 +50,7 @@ class Train:
 
         self.num_epochs = training_config["num_epochs"]
         self.patience = training_config.get("patience", 10)
+        self.epsiode = training_config.get("epsiod", 100)
         self.logger = TensorBoardLogger()
 
         dummy_entities = torch.zeros(
@@ -61,8 +62,8 @@ class Train:
         dummy_task_mask = torch.ones(
             (training_config["batch_size"], env_config["max_tasks"])).to(self.device)
 
-        # self.logger.log_graph(
-        #     self.model, (dummy_entities, dummy_tasks, dummy_entity_mask, dummy_task_mask))
+        self.logger.log_graph(
+            self.model, (dummy_entities, dummy_tasks, dummy_entity_mask, dummy_task_mask))
 
     def collate_fn(self, batch):
         entities, tasks, entity_mask, task_mask, task_assignments = zip(*batch)
@@ -108,61 +109,64 @@ class Train:
         return best_val_loss, patience_counter, False
 
     def train(self):
-        best_val_loss = float('inf')
-        patience_counter = 0
+        for turn in range(self.epsiode):
+            print("current epsiode", turn)
+            best_val_loss = float('inf')
+            patience_counter = 0
 
-        for epoch in range(self.num_epochs):
-            self.model.train()
-            total_loss = 0.0
-            for entities, tasks, entity_mask, task_mask, task_assignments in self.dataloader:
-                entities = entities.to(self.device)
-                tasks = tasks.to(self.device)
-                entity_mask = entity_mask.to(self.device)
-                task_mask = task_mask.to(self.device)
-                task_assignments = task_assignments.to(self.device)
+            for epoch in range(self.num_epochs):
+                self.model.train()
+                total_loss = 0.0
+                for entities, tasks, entity_mask, task_mask, task_assignments in self.dataloader:
+                    entities = entities.to(self.device)
+                    tasks = tasks.to(self.device)
+                    entity_mask = entity_mask.to(self.device)
+                    task_mask = task_mask.to(self.device)
+                    task_assignments = task_assignments.to(self.device)
 
-                self.optimizer.zero_grad()
+                    self.optimizer.zero_grad()
 
-                outputs = self.model(entities, tasks, entity_mask, task_mask)
+                    outputs = self.model(
+                        entities, tasks, entity_mask, task_mask)
 
-                if torch.isnan(outputs).any():
-                    print("NaN detected in combined_output")
-                    return None
-                if outputs is None:
-                    continue
-
-                # 计算每个平台对应任务的损失
-                loss = 0
-                for i in range(outputs.shape[1]):
-                    loss += self.criterion(outputs[:, i, :],
-                                           task_assignments[:, i])
-                    if torch.isnan(loss).any():
+                    if torch.isnan(outputs).any():
                         print("NaN detected in combined_output")
                         return None
+                    if outputs is None:
+                        continue
 
-                loss.backward()
+                    # 计算每个平台对应任务的损失
+                    loss = 0
+                    for i in range(outputs.shape[1]):
+                        loss += self.criterion(outputs[:, i, :],
+                                               task_assignments[:, i])
+                        if torch.isnan(loss).any():
+                            print("NaN detected in combined_output")
+                            return None
 
-                torch.nn.utils.clip_grad_norm_(
-                    self.model.parameters(), max_norm=1.0)
+                    loss.backward()
 
-                self.optimizer.step()
+                    torch.nn.utils.clip_grad_norm_(
+                        self.model.parameters(), max_norm=1.0)
 
-                total_loss += loss.item()
+                    self.optimizer.step()
 
-            avg_train_loss = total_loss / len(self.dataloader)
-            avg_val_loss = self.validate()
-            self.scheduler.step(avg_val_loss)
+                    total_loss += loss.item()
 
-            self.logger.log_scalar('Loss/train', avg_train_loss, epoch)
-            self.logger.log_scalar('Loss/val', avg_val_loss, epoch)
+                avg_train_loss = total_loss / len(self.dataloader)
+                avg_val_loss = self.validate()
+                self.scheduler.step(avg_val_loss)
 
-            print(
-                f"Epoch {epoch + 1}/{self.num_epochs}, Train Loss: {avg_train_loss}, Val Loss: {avg_val_loss}")
+                self.logger.log_scalar('Loss/train', avg_train_loss, epoch)
+                self.logger.log_scalar('Loss/val', avg_val_loss, epoch)
 
-            best_val_loss, patience_counter, stop = self.early_stopping_check(
-                avg_val_loss, best_val_loss, patience_counter, "best_model.pth")
-            if stop:
-                break
+                print(
+                    f"Epoch {epoch + 1}/{self.num_epochs}, Train Loss: {avg_train_loss}, Val Loss: {avg_val_loss}")
+
+                best_val_loss, patience_counter, stop = self.early_stopping_check(
+                    avg_val_loss, best_val_loss, patience_counter, "best_model.pth")
+                if stop:
+                    break
 
     def save_model(self, path):
         ModelManager.save_model(self.model, path)
@@ -173,10 +177,11 @@ class Train:
 
 if __name__ == "__main__":
     env_config = {
-        "max_entities": 5,
-        "max_tasks": 5,
+        "max_entities": 20,
+        "max_tasks": 20,
         "entity_dim": 6,
-        "task_dim": 4
+        "task_dim": 4,
+        "undefined": True
     }
 
     network_config = {
@@ -185,7 +190,7 @@ if __name__ == "__main__":
         "hidden_dim": 64,
         "num_layers": 2,
         "mlp_hidden_dim": 128,
-        "output_dim": 5,  # 增加一个任务编号
+        "output_dim": env_config["max_tasks"]+1,  # max_tasks增加一个任务编号
         "transfer_dim": 128
     }
 
@@ -193,8 +198,9 @@ if __name__ == "__main__":
         "num_samples": 1024,
         "batch_size": 32,
         "lr": 0.001,
-        "num_epochs": 100000,
-        "patience": 100000
+        "num_epochs": 200,
+        "patience": 50,
+        "epsiode": 100
     }
 
     trainer = Train(env_config, network_config,
