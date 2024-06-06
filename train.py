@@ -15,22 +15,12 @@ class Train:
         self.data_preprocessor = DataPreprocessor(
             env_config["max_entities"], env_config["max_tasks"], env_config["entity_dim"], env_config["task_dim"])
 
-        self.model_path = "%s_%s_model.pth" % (
-            env_config["max_entities"], env_config["max_tasks"])
-
-        try:
-            self.load_model()
-            print(f"Successfully loaded model from {self.model_path}")
-        except FileNotFoundError:
-            print(
-                f"No existing model found at {self.model_path}. Starting training from scratch.")
-
         if data_file and os.path.exists(data_file):
             self.dataset = SampleGenerator(
-                env_config["num_samples"], env_config["undefined"], self.data_preprocessor, data_file)
+                env_config["num_samples"], env_config, self.data_preprocessor)
         else:
             self.dataset = SampleGenerator(
-                env_config["num_samples"], env_config["undefined"], self.data_preprocessor)
+                env_config["num_samples"], env_config, self.data_preprocessor)
             self.dataset.save_data("train_data.h5")
 
         self.dataloader = DataLoader(
@@ -74,6 +64,16 @@ class Train:
 
         self.logger.log_graph(
             self.model, (dummy_entities, dummy_tasks, dummy_entity_mask, dummy_task_mask))
+
+        self.model_path = "%s_%s_model.pth" % (
+            env_config["max_entities"], env_config["max_tasks"])
+
+        try:
+            self.load_model()
+            print(f"Successfully loaded model from {self.model_path}")
+        except FileNotFoundError:
+            print(
+                f"No existing model found at {self.model_path}. Starting training from scratch.")
 
     def collate_fn(self, batch):
         entities, tasks, entity_mask, task_mask, task_assignments = zip(*batch)

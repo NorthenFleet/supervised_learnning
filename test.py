@@ -14,7 +14,7 @@ class Data_Sample():
 
         # 初始化数据生成器
         self.sample_generator = SampleGenerator(
-            env_config["max_entities"], env_config["undefined"], self.data_preprocessor)
+            env_config["max_entities"], env_config, self.data_preprocessor)
 
     def generate_sample(self):
         # 获取一个样本
@@ -30,7 +30,7 @@ if __name__ == "__main__":
         "max_tasks": 5,
         "entity_dim": 6,
         "task_dim": 4,
-        "undefined": True
+        "undefined": False
     }
     data_sample = Data_Sample(env_config)
 
