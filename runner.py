@@ -18,7 +18,8 @@ class InferenceRunner:
             "transfer_dim": 128
         }
 
-        model_path = "best_model.pth"
+        model_path = "%s_%s_model.pth" % (
+            env_config["max_entities"], env_config["max_tasks"])
 
         # 初始化模型
         self.model = DecisionNetworkMultiHead(

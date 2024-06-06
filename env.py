@@ -6,8 +6,9 @@ from torch.utils.data import Dataset
 
 
 class SampleGenerator(Dataset):
-    def __init__(self, num_samples, data_preprocessor, data_file=None):
+    def __init__(self, num_samples, undefined, data_preprocessor, data_file=None):
         self.num_samples = num_samples
+        self.undefined = undefined
         self.data_preprocessor = data_preprocessor
         self.data = []
 
@@ -26,10 +27,11 @@ class SampleGenerator(Dataset):
 
     def generate_data(self):
         for _ in range(self.num_samples):
-            # num_entities = np.random.randint(
-            #     1, self.data_preprocessor.max_entities + 1)
-
-            num_entities = self.data_preprocessor.max_entities
+            if self.undefined == True:
+                num_entities = np.random.randint(
+                    0, self.data_preprocessor.max_entities)
+            else:
+                num_entities = self.data_preprocessor.max_entities
 
             entities = np.zeros(
                 (num_entities, self.data_preprocessor.entity_dim))
@@ -42,9 +44,11 @@ class SampleGenerator(Dataset):
                 endurance = np.random.uniform(1, 10)          # 可持续时长
                 entities[i] = [x, y, range_, speed, detection_range, endurance]
 
-            # num_tasks = np.random.randint(
-            #     1, self.data_preprocessor.max_tasks + 1)
-            num_tasks = self.data_preprocessor.max_tasks
+            if self.undefined == True:
+                num_tasks = np.random.randint(
+                    1, self.data_preprocessor.max_tasks)
+            else:
+                num_tasks = self.data_preprocessor.max_tasks
             tasks = np.zeros((num_tasks, self.data_preprocessor.task_dim))
             for j in range(num_tasks):
                 priority = np.random.randint(1, 4)            # 任务优先级

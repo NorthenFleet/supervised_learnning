@@ -17,17 +17,17 @@ class Train:
 
         if data_file and os.path.exists(data_file):
             self.dataset = SampleGenerator(
-                training_config["num_samples"], self.data_preprocessor, data_file)
+                env_config["num_samples"], env_config["undefined"], self.data_preprocessor, data_file)
         else:
             self.dataset = SampleGenerator(
-                training_config["num_samples"], self.data_preprocessor)
+                env_config["num_samples"], env_config["undefined"], self.data_preprocessor)
             self.dataset.save_data("train_data.h5")
 
         self.dataloader = DataLoader(
             self.dataset, batch_size=training_config["batch_size"], shuffle=True, collate_fn=self.collate_fn)
 
         self.val_dataset = SampleGenerator(
-            training_config["num_samples"] // 10, self.data_preprocessor, data_file)
+            env_config["num_samples"] // 10, env_config["undefined"], self.data_preprocessor, data_file)
         self.val_dataloader = DataLoader(
             self.val_dataset, batch_size=training_config["batch_size"], shuffle=False, collate_fn=self.collate_fn)
 
@@ -35,8 +35,8 @@ class Train:
             "cuda" if torch.cuda.is_available() else "cpu")
 
         self.model = DecisionNetworkMultiHead(
-            env_config["entity_dim"], env_config["task_dim"], network_config["transfer_dim"],
-            network_config["entity_num_heads"], network_config["task_num_heads"],
+            network_config["entity_input_dim"], network_config["task_input_dim"], network_config["transfer_dim"],
+            network_config["entity_transformer_heads"], network_config["task_transformer_heads"],
             network_config["hidden_dim"], network_config["num_layers"],
             network_config["mlp_hidden_dim"], env_config["max_entities"],
             network_config["output_dim"] + 1)  # 增加一个任务编号
@@ -130,7 +130,7 @@ class Train:
                         entities, tasks, entity_mask, task_mask)
 
                     if torch.isnan(outputs).any():
-                        print("NaN detected in combined_output")
+                        print("NaN detected in output")
                         return None
                     if outputs is None:
                         continue
@@ -141,7 +141,7 @@ class Train:
                         loss += self.criterion(outputs[:, i, :],
                                                task_assignments[:, i])
                         if torch.isnan(loss).any():
-                            print("NaN detected in combined_output")
+                            print("NaN detected in loss")
                             return None
 
                     loss.backward()
@@ -177,25 +177,28 @@ class Train:
 
 if __name__ == "__main__":
     env_config = {
-        "max_entities": 20,
-        "max_tasks": 20,
+        "max_entities": 1,
+        "max_tasks": 5,
         "entity_dim": 6,
         "task_dim": 4,
+        "num_samples": 1024,
         "undefined": True
     }
 
     network_config = {
-        "entity_num_heads": 2,
-        "task_num_heads": 2,
+        "entity_input_dim": env_config["entity_dim"],
+        "task_input_dim": env_config["task_dim"],
+        "entity_transformer_heads": 2,
+        "task_transformer_heads": 2,
         "hidden_dim": 64,
         "num_layers": 2,
         "mlp_hidden_dim": 128,
+        "entity_headds": env_config["max_entities"],
         "output_dim": env_config["max_tasks"]+1,  # max_tasks增加一个任务编号
         "transfer_dim": 128
     }
 
     training_config = {
-        "num_samples": 1024,
         "batch_size": 32,
         "lr": 0.001,
         "num_epochs": 200,
@@ -203,10 +206,16 @@ if __name__ == "__main__":
         "epsiode": 100
     }
 
-    trainer = Train(env_config, network_config,
-                    training_config, data_file="train_data.h5")
+    data_path = "%s_%s_%s_train_data.h5" % (
+        env_config["max_entities"], env_config["max_tasks"], str(
+            env_config["undefined"]))
 
-    model_path = "best_model.pth"
+    trainer = Train(env_config, network_config,
+                    training_config, data_file=data_path)
+
+    model_path = "%s_%s_model.pth" % (
+        env_config["max_entities"], env_config["max_tasks"])
+
     try:
         trainer.load_model(model_path)
         print(f"Successfully loaded model from {model_path}")
@@ -215,4 +224,4 @@ if __name__ == "__main__":
             f"No existing model found at {model_path}. Starting training from scratch.")
 
     trainer.train()
-    trainer.save_model("best_model.pth")
+    trainer.save_model(model_path)
