@@ -15,19 +15,14 @@ class Train:
         self.data_preprocessor = DataPreprocessor(
             env_config["max_entities"], env_config["max_tasks"], env_config["entity_dim"], env_config["task_dim"])
 
-        if data_file and os.path.exists(data_file):
-            self.dataset = SampleGenerator(
-                env_config["num_samples"], env_config, self.data_preprocessor)
-        else:
-            self.dataset = SampleGenerator(
-                env_config["num_samples"], env_config, self.data_preprocessor)
-            self.dataset.save_data("train_data.h5")
+        self.dataset = SampleGenerator(
+            env_config["num_samples"], env_config, self.data_preprocessor)
 
         self.dataloader = DataLoader(
             self.dataset, batch_size=training_config["batch_size"], shuffle=True, collate_fn=self.collate_fn)
 
         self.val_dataset = SampleGenerator(
-            env_config["num_samples"] // 10, env_config["undefined"], self.data_preprocessor, data_file)
+            env_config["num_samples"] // 10, env_config, self.data_preprocessor)
         self.val_dataloader = DataLoader(
             self.val_dataset, batch_size=training_config["batch_size"], shuffle=False, collate_fn=self.collate_fn)
 
@@ -178,7 +173,7 @@ class Train:
                 if stop:
                     break
 
-            self.save_model()
+            self.save_model(self.model_path)
 
     def save_model(self, path):
         ModelManager.save_model(self.model, self.model_path)

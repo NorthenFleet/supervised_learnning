@@ -39,14 +39,15 @@ if __name__ == "__main__":
 
     # 生成一个样本
     padded_entities, padded_tasks, entity_mask, task_mask, targets = data_sample.generate_sample()
-    print(padded_entities)
-    print(padded_tasks)
+    print("entities:", padded_entities)
+    print("tasks:", padded_tasks)
 
     # 运行推理
     network_output = runner.run_inference(
         padded_entities, padded_tasks, entity_mask, task_mask)
 
     target = data_sample.sample_generator.get_target(
-        padded_entities, padded_tasks, entity_mask, task_mask)
+        padded_entities, padded_tasks)
 
-    print(network_output[0])
+    print("output:", network_output[0])
+    print("target:", target)
