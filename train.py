@@ -15,6 +15,16 @@ class Train:
         self.data_preprocessor = DataPreprocessor(
             env_config["max_entities"], env_config["max_tasks"], env_config["entity_dim"], env_config["task_dim"])
 
+        self.model_path = "%s_%s_model.pth" % (
+            env_config["max_entities"], env_config["max_tasks"])
+
+        try:
+            self.load_model()
+            print(f"Successfully loaded model from {self.model_path}")
+        except FileNotFoundError:
+            print(
+                f"No existing model found at {self.model_path}. Starting training from scratch.")
+
         if data_file and os.path.exists(data_file):
             self.dataset = SampleGenerator(
                 env_config["num_samples"], env_config["undefined"], self.data_preprocessor, data_file)
@@ -168,11 +178,13 @@ class Train:
                 if stop:
                     break
 
-    def save_model(self, path):
-        ModelManager.save_model(self.model, path)
+            self.save_model()
 
-    def load_model(self, path):
-        ModelManager.load_model(self.model, path, self.device)
+    def save_model(self, path):
+        ModelManager.save_model(self.model, self.model_path)
+
+    def load_model(self):
+        ModelManager.load_model(self.model, self.model_path, self.device)
 
 
 if __name__ == "__main__":
@@ -182,7 +194,7 @@ if __name__ == "__main__":
         "entity_dim": 6,
         "task_dim": 4,
         "num_samples": 1024,
-        "undefined": True
+        "undefined": False
     }
 
     network_config = {
@@ -206,22 +218,5 @@ if __name__ == "__main__":
         "epsiode": 100
     }
 
-    data_path = "%s_%s_%s_train_data.h5" % (
-        env_config["max_entities"], env_config["max_tasks"], str(
-            env_config["undefined"]))
-
-    trainer = Train(env_config, network_config,
-                    training_config, data_file=data_path)
-
-    model_path = "%s_%s_model.pth" % (
-        env_config["max_entities"], env_config["max_tasks"])
-
-    try:
-        trainer.load_model(model_path)
-        print(f"Successfully loaded model from {model_path}")
-    except FileNotFoundError:
-        print(
-            f"No existing model found at {model_path}. Starting training from scratch.")
-
+    trainer = Train(env_config, network_config, training_config)
     trainer.train()
-    trainer.save_model(model_path)

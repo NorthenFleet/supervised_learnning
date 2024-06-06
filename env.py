@@ -6,18 +6,22 @@ from torch.utils.data import Dataset
 
 
 class SampleGenerator(Dataset):
-    def __init__(self, num_samples, undefined, data_preprocessor, data_file=None):
+    def __init__(self, num_samples, config, data_preprocessor):
         self.num_samples = num_samples
-        self.undefined = undefined
+        self.undefined = config["undefined"]
         self.data_preprocessor = data_preprocessor
         self.data = []
 
-        if data_file and os.path.exists(data_file):
-            self.load_data(data_file)
+        data_path = "%s_%s_%s_train_data.h5" % (
+            config["max_entities"], config["max_tasks"], str(
+                config["undefined"]))
+
+        if data_path and os.path.exists(data_path):
+            self.load_data(data_path)
         else:
             self.generate_data()
-            if data_file:
-                self.save_data(data_file)
+            if data_path:
+                self.save_data(data_path)
 
     def __len__(self):
         return self.num_samples
