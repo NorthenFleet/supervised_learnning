@@ -33,7 +33,7 @@ class DecisionNetworkMultiHead(nn.Module):
             transfer_dim, hidden_dim, num_layers)
         self.task_fc_layers = self._build_fc_layers(
             transfer_dim, hidden_dim, num_layers)
-        
+
         self.entity_encoder = TransformerEncoder(
             transfer_dim, entity_num_heads, hidden_dim, num_layers)
         self.task_encoder = TransformerEncoder(
@@ -42,7 +42,7 @@ class DecisionNetworkMultiHead(nn.Module):
         self.entity_bn = nn.BatchNorm1d(transfer_dim)
         self.task_bn = nn.BatchNorm1d(transfer_dim)
 
-        self.combination_layer = nn.Linear(2 * transfer_dim, transfer_dim)
+        self.combination_layer = nn.Linear(2 * hidden_dim, transfer_dim)
         self.hidden_layer = nn.Linear(transfer_dim, transfer_dim)
         self.activation = nn.ReLU()
 
@@ -73,7 +73,7 @@ class DecisionNetworkMultiHead(nn.Module):
         entities = self.entity_embedding(entities)
         tasks = self.task_embedding(tasks)
 
-        if self.use_transformer == True:
+        if self.use_transformer:
             entities = entities.permute(1, 0, 2)
             tasks = tasks.permute(1, 0, 2)
             # Encoding
@@ -81,16 +81,17 @@ class DecisionNetworkMultiHead(nn.Module):
                 entities, src_key_padding_mask=entity_mask.bool()).max(dim=0)[0]
             encoded_tasks = self.task_encoder(
                 tasks, src_key_padding_mask=task_mask.bool()).max(dim=0)[0]
-
         else:
             # Embedding and normalization
-            entities = self.entity_bn(self.entity_embedding(entities))
-            tasks = self.task_bn(self.task_embedding(tasks))
+            entities = self.entity_bn(
+                entities.permute(0, 2, 1)).permute(0, 2, 1)
+            tasks = self.task_bn(tasks.permute(0, 2, 1)).permute(0, 2, 1)
 
             # Fully connected layers
             entities = self.entity_fc_layers(
                 entities.permute(0, 2, 1)).permute(0, 2, 1)
-            tasks = self.task_fc_layers(tasks.permute(0, 2, 1)).permute(0, 2, 1)
+            tasks = self.task_fc_layers(
+                tasks.permute(0, 2, 1)).permute(0, 2, 1)
 
             # Max pooling
             encoded_entities = entities.max(dim=1)[0]
@@ -100,8 +101,6 @@ class DecisionNetworkMultiHead(nn.Module):
         combined_output = torch.cat((encoded_entities, encoded_tasks), dim=-1)
         combined_output = self.combination_layer(combined_output)
         combined_output = self.activation(combined_output)
-        # combined_output = self.hidden_layer(combined_output)
-        # combined_output = self.activation(combined_output)
 
         # Multi-head outputs
         outputs = []
@@ -122,4 +121,4 @@ class DecisionNetworkMultiHead(nn.Module):
 
     def predict(self, entities, tasks, entity_mask, task_mask):
         outputs = self.forward(entities, tasks, entity_mask, task_mask)
-        return torch.argmax(outputs, dim=-1)  # Return indices for prediction
+        return torch.argmax(outputs, dim=-1)  # 返回预测的索引
