@@ -16,8 +16,12 @@ class TransformerEncoder(nn.Module):
 
 
 class DecisionNetworkMultiHead(nn.Module):
-    def __init__(self, entity_input_dim, task_input_dim, transfer_dim, entity_num_heads, task_num_heads, hidden_dim, num_layers, mlp_hidden_dim, entity_heads, output_dim):
+    def __init__(self, entity_input_dim, task_input_dim,
+                 transfer_dim, entity_num_heads, task_num_heads,
+                 hidden_dim, num_layers, mlp_hidden_dim,
+                 entity_heads, output_dim, use_transformer):
         super(DecisionNetworkMultiHead, self).__init__()
+        self.use_transformer = use_transformer
         self.entity_norm = nn.LayerNorm(entity_input_dim)
         self.task_norm = nn.LayerNorm(task_input_dim)
 
@@ -43,23 +47,22 @@ class DecisionNetworkMultiHead(nn.Module):
         ])
 
     def forward(self, entities, tasks, entity_mask, task_mask):
-        '''
-        # 检查并处理 entity_mask 和 task_mask 中全为 1 的情况
-        if torch.any(entity_mask.sum(dim=1) == entity_mask.size(1)):
-            entity_mask[entity_mask.sum(dim=1) == entity_mask.size(1)] = 0
-        if torch.any(task_mask.sum(dim=1) == task_mask.size(1)):
-            task_mask[task_mask.sum(dim=1) == task_mask.size(1)] = 0
-        '''
+        # normalization
+        entities = self.entity_norm(entities)
+        tasks = self.task_norm(tasks)
+
         # Embedding and permute for transformers
-        entities = self.entity_embedding(entities).permute(1, 0, 2)
-        tasks = self.task_embedding(tasks).permute(1, 0, 2)
+        entities = self.entity_embedding(entities)
+        tasks = self.task_embedding(tasks)
 
-        # Encoding
-        encoded_entities = self.entity_encoder(
-            entities, src_key_padding_mask=entity_mask.bool()).max(dim=0)[0]
-
-        encoded_tasks = self.task_encoder(
-            tasks, src_key_padding_mask=task_mask.bool()).max(dim=0)[0]
+        if self.use_transformer == True:
+            entities = entities.permute(1, 0, 2)
+            tasks = tasks.permute(1, 0, 2)
+            # Encoding
+            encoded_entities = self.entity_encoder(
+                entities, src_key_padding_mask=entity_mask.bool()).max(dim=0)[0]
+            encoded_tasks = self.task_encoder(
+                tasks, src_key_padding_mask=task_mask.bool()).max(dim=0)[0]
 
         # Combine entity and task encodings
         combined_output = torch.cat((encoded_entities, encoded_tasks), dim=-1)
