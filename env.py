@@ -69,8 +69,7 @@ class SampleGenerator(Dataset):
 
             targets = self.__getreward__(padded_entities, padded_tasks)
 
-            entities = (entities - entities.mean(axis=0)) / \
-                (entities.std(axis=0) + 1e-5)
+            entities = (entities - entities.mean(axis=0)) / (entities.std(axis=0) + 1e-5)
             tasks = (tasks - tasks.mean(axis=0)) / (tasks.std(axis=0) + 1e-5)
 
             padded_entities, padded_tasks, entity_mask, task_mask = self.data_preprocessor.pad_and_mask(

@@ -18,8 +18,12 @@ class TransformerEncoder(nn.Module):
 class DecisionNetworkMultiHead(nn.Module):
     def __init__(self, entity_input_dim, task_input_dim, transfer_dim, entity_num_heads, task_num_heads, hidden_dim, num_layers, mlp_hidden_dim, entity_heads, output_dim):
         super(DecisionNetworkMultiHead, self).__init__()
+        self.entity_norm = nn.LayerNorm(entity_input_dim)
+        self.task_norm = nn.LayerNorm(task_input_dim)
+
         self.entity_embedding = nn.Linear(entity_input_dim, transfer_dim)
         self.task_embedding = nn.Linear(task_input_dim, transfer_dim)
+
         self.entity_encoder = TransformerEncoder(
             transfer_dim, entity_num_heads, hidden_dim, num_layers)
         self.task_encoder = TransformerEncoder(
