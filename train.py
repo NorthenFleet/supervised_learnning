@@ -203,7 +203,7 @@ if __name__ == "__main__":
         "entity_headds": env_config["max_entities"],
         "output_dim": env_config["max_tasks"]+1,  # max_tasks增加一个任务编号
         "transfer_dim": 128,
-        "use_transformer": True
+        "use_transformer": False
     }
 
     training_config = {

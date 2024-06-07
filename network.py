@@ -28,10 +28,19 @@ class DecisionNetworkMultiHead(nn.Module):
         self.entity_embedding = nn.Linear(entity_input_dim, transfer_dim)
         self.task_embedding = nn.Linear(task_input_dim, transfer_dim)
 
+        # 定义全连接层
+        self.entity_fc_layers = self._build_fc_layers(
+            transfer_dim, hidden_dim, num_layers)
+        self.task_fc_layers = self._build_fc_layers(
+            transfer_dim, hidden_dim, num_layers)
+        
         self.entity_encoder = TransformerEncoder(
             transfer_dim, entity_num_heads, hidden_dim, num_layers)
         self.task_encoder = TransformerEncoder(
             transfer_dim, task_num_heads, hidden_dim, num_layers)
+
+        self.entity_bn = nn.BatchNorm1d(transfer_dim)
+        self.task_bn = nn.BatchNorm1d(transfer_dim)
 
         self.combination_layer = nn.Linear(2 * transfer_dim, transfer_dim)
         self.hidden_layer = nn.Linear(transfer_dim, transfer_dim)
@@ -45,6 +54,15 @@ class DecisionNetworkMultiHead(nn.Module):
                 nn.Linear(mlp_hidden_dim, output_dim)
             ) for _ in range(entity_heads)
         ])
+
+    def _build_fc_layers(self, input_dim, hidden_dim, num_layers):
+        layers = []
+        for _ in range(num_layers):
+            layers.append(nn.Linear(input_dim, hidden_dim))
+            layers.append(nn.BatchNorm1d(hidden_dim))
+            layers.append(nn.ReLU())
+            input_dim = hidden_dim
+        return nn.Sequential(*layers)
 
     def forward(self, entities, tasks, entity_mask, task_mask):
         # normalization
@@ -63,6 +81,20 @@ class DecisionNetworkMultiHead(nn.Module):
                 entities, src_key_padding_mask=entity_mask.bool()).max(dim=0)[0]
             encoded_tasks = self.task_encoder(
                 tasks, src_key_padding_mask=task_mask.bool()).max(dim=0)[0]
+
+        else:
+            # Embedding and normalization
+            entities = self.entity_bn(self.entity_embedding(entities))
+            tasks = self.task_bn(self.task_embedding(tasks))
+
+            # Fully connected layers
+            entities = self.entity_fc_layers(
+                entities.permute(0, 2, 1)).permute(0, 2, 1)
+            tasks = self.task_fc_layers(tasks.permute(0, 2, 1)).permute(0, 2, 1)
+
+            # Max pooling
+            encoded_entities = entities.max(dim=1)[0]
+            encoded_tasks = tasks.max(dim=1)[0]
 
         # Combine entity and task encodings
         combined_output = torch.cat((encoded_entities, encoded_tasks), dim=-1)
