@@ -30,13 +30,14 @@ class SampleGenerator(Dataset):
         return self.data[idx]
 
     def generate_data(self):
+        entities_list = []
+        tasks_list = []
+        entity_masks_list = []
+        task_masks_list = []
+        targets_list = []
         for _ in range(self.num_samples):
-            if self.undefined == True:
-                num_entities = np.random.randint(
-                    0, self.data_preprocessor.max_entities)
-            else:
-                num_entities = self.data_preprocessor.max_entities
-
+            num_entities = np.random.randint(
+                1, self.data_preprocessor.max_entities + 1)
             entities = np.zeros(
                 (num_entities, self.data_preprocessor.entity_dim))
             for i in range(num_entities):
@@ -44,15 +45,12 @@ class SampleGenerator(Dataset):
                 y = np.random.uniform(0, 100)                 # 平台位置 y
                 range_ = np.random.uniform(50, 500)           # 航程
                 speed = np.random.uniform(10, 30)             # 速度
-                detection_range = np.random.uniform(80, 100)  # 探测距离
+                detection_range = np.random.uniform(10, 100)  # 探测距离
                 endurance = np.random.uniform(1, 10)          # 可持续时长
                 entities[i] = [x, y, range_, speed, detection_range, endurance]
 
-            if self.undefined == True:
-                num_tasks = np.random.randint(
-                    1, self.data_preprocessor.max_tasks)
-            else:
-                num_tasks = self.data_preprocessor.max_tasks
+            num_tasks = np.random.randint(
+                1, self.data_preprocessor.max_tasks + 1)
             tasks = np.zeros((num_tasks, self.data_preprocessor.task_dim))
             for j in range(num_tasks):
                 priority = np.random.randint(1, 4)            # 任务优先级
@@ -66,18 +64,30 @@ class SampleGenerator(Dataset):
 
             padded_entities, padded_tasks, entity_mask, task_mask = self.data_preprocessor.pad_and_mask(
                 entities, tasks)
+            targets = self.__getreward__(
+                padded_entities, padded_tasks)  # 计算最佳任务
 
-            targets = self.__getreward__(padded_entities, padded_tasks)
+            entities_list.append(padded_entities)
+            tasks_list.append(padded_tasks)
+            entity_masks_list.append(entity_mask)
+            task_masks_list.append(task_mask)
+            targets_list.append(targets)
 
-            entities = (entities - entities.mean(axis=0)) / \
-                (entities.std(axis=0) + 1e-5)
-            tasks = (tasks - tasks.mean(axis=0)) / (tasks.std(axis=0) + 1e-5)
+        entities = np.stack(entities_list)
+        tasks = np.stack(tasks_list)
+        entity_masks = np.stack(entity_masks_list)
+        task_masks = np.stack(task_masks_list)
+        targets = np.stack(targets_list)
 
-            padded_entities, padded_tasks, entity_mask, task_mask = self.data_preprocessor.pad_and_mask(
-                entities, tasks)
+        # 对整个数据集进行标准化
+        entities = (entities - np.mean(entities, axis=0)) / \
+            (np.std(entities, axis=0) + 1e-5)
+        tasks = (tasks - np.mean(tasks, axis=0)) / \
+            (np.std(tasks, axis=0) + 1e-5)
 
-            self.data.append((padded_entities, padded_tasks,
-                             entity_mask, task_mask, targets))
+        for i in range(entities.shape[0]):
+            self.data.append((entities[i], tasks[i],
+                             entity_masks[i], task_masks[i], targets[i]))
 
     def __getreward__(self, entities, tasks):
         num_entities = entities.shape[0]
