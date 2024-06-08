@@ -1,5 +1,6 @@
 from env import SampleGenerator, DataPreprocessor
 from runner import InferenceRunner
+import random
 
 
 class Data_Sample():
@@ -18,8 +19,9 @@ class Data_Sample():
 
     def generate_sample(self):
         # 获取一个样本
-        sample = self.sample_generator[0:10]
-        padded_entities, padded_tasks, entity_mask, task_mask, targets = sample[1]
+        sample = self.sample_generator
+        i = random.choice(range(len(sample.data)))
+        padded_entities, padded_tasks, entity_mask, task_mask, targets = sample[i]
 
         return padded_entities, padded_tasks, entity_mask, task_mask, targets
 
@@ -37,17 +39,19 @@ if __name__ == "__main__":
     # 创建推理运行器
     runner = InferenceRunner(env_config)
 
-    # 生成一个样本
-    padded_entities, padded_tasks, entity_mask, task_mask, targets = data_sample.generate_sample()
-    print("entities:", padded_entities)
-    print("tasks:", padded_tasks)
+    for i in range(10):
+        print("current turn", i)
+        # 生成一个样本
+        padded_entities, padded_tasks, entity_mask, task_mask, targets = data_sample.generate_sample()
+        print("entities:", padded_entities)
+        print("tasks:", padded_tasks)
 
-    # 运行推理
-    network_output = runner.run_inference(
-        padded_entities, padded_tasks, entity_mask, task_mask)
+        # 运行推理
+        network_output = runner.run_inference(
+            padded_entities, padded_tasks, entity_mask, task_mask)
 
-    target = data_sample.sample_generator.get_target(
-        padded_entities, padded_tasks)
+        target = data_sample.sample_generator.get_target(
+            padded_entities, padded_tasks)
 
-    print("output:", network_output[0])
-    print("target:", target)
+        print("output:", network_output[0])
+        print("target:", target)

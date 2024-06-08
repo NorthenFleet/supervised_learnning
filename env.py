@@ -67,11 +67,11 @@ class SampleGenerator(Dataset):
             targets = self.__getreward__(
                 padded_entities, padded_tasks)  # 计算最佳任务
 
-            entities_list.append(padded_entities)
-            tasks_list.append(padded_tasks)
-            entity_masks_list.append(entity_mask)
-            task_masks_list.append(task_mask)
-            targets_list.append(targets)
+            entities_list.append(padded_entities.numpy())
+            tasks_list.append(padded_tasks.numpy())
+            entity_masks_list.append(entity_mask.numpy())
+            task_masks_list.append(task_mask.numpy())
+            targets_list.append(targets.numpy())
 
         entities = np.stack(entities_list)
         tasks = np.stack(tasks_list)
@@ -86,8 +86,8 @@ class SampleGenerator(Dataset):
             (np.std(tasks, axis=0) + 1e-5)
 
         for i in range(entities.shape[0]):
-            self.data.append((entities[i], tasks[i],
-                             entity_masks[i], task_masks[i], targets[i]))
+            self.data.append((torch.tensor(entities[i]), torch.tensor(tasks[i]),
+                             torch.tensor(entity_masks[i]), torch.tensor(task_masks[i]), torch.tensor(targets[i])))
 
     def __getreward__(self, entities, tasks):
         num_entities = entities.shape[0]
@@ -136,11 +136,11 @@ class SampleGenerator(Dataset):
         with h5py.File(file_name, 'w') as f:
             for i, (entities, tasks, entity_mask, task_mask, targets) in enumerate(self.data):
                 grp = f.create_group(str(i))
-                grp.create_dataset('entities', data=entities.numpy())
-                grp.create_dataset('tasks', data=tasks.numpy())
-                grp.create_dataset('entity_mask', data=entity_mask.numpy())
-                grp.create_dataset('task_mask', data=task_mask.numpy())
-                grp.create_dataset('targets', data=targets.numpy())
+                grp.create_dataset('entities', data=entities)
+                grp.create_dataset('tasks', data=tasks)
+                grp.create_dataset('entity_mask', data=entity_mask)
+                grp.create_dataset('task_mask', data=task_mask)
+                grp.create_dataset('targets', data=targets)
 
     def load_data(self, file_name):
         with h5py.File(file_name, 'r') as f:
