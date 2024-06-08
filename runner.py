@@ -29,12 +29,13 @@ class InferenceRunner:
 
         # 初始化模型
         self.model = DecisionNetworkMultiHead(
-
-            env_config["entity_dim"], env_config["task_dim"],
-            network_config["transfer_dim"], network_config["entity_transformer_heads"],
-            network_config["task_transformer_heads"], network_config["hidden_dim"],
-            network_config["num_layers"], network_config["mlp_hidden_dim"],
-            env_config["max_entities"], network_config["output_dim"] + 1)  # 增加一个任务编号
+            network_config["max_entities"], network_config["max_tasks"],
+            env_config["entity_dim"], env_config["task_dim"], network_config["transfer_dim"],
+            network_config["entity_transformer_heads"], network_config["task_transformer_heads"],
+            network_config["hidden_dim"], network_config["num_layers"],
+            network_config["mlp_hidden_dim"], env_config["max_entities"],
+            # 增加一个任务编号
+            network_config["output_dim"] + 1, network_config["use_transformer"])
 
         # 加载训练好的模型权重
         self.load_model(model_path)
