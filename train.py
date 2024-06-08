@@ -10,7 +10,7 @@ from tensorboard_logger import TensorBoardLogger
 import os
 
 
-class Train:
+class Trainer:
     def __init__(self, env_config, network_config, training_config, data_file=None):
         self.data_preprocessor = DataPreprocessor(
             env_config["max_entities"], env_config["max_tasks"], env_config["entity_dim"], env_config["task_dim"])
@@ -61,8 +61,8 @@ class Train:
         self.logger.log_graph(
             self.model, (dummy_entities, dummy_tasks, dummy_entity_mask, dummy_task_mask))
 
-        self.model_path = "%s_%s_model.pth" % (
-            env_config["max_entities"], env_config["max_tasks"])
+        self.model_path = "%s_%s_%s_model.pth" % (
+            env_config["max_entities"], env_config["max_tasks"], network_config["use_transformer"])
 
         try:
             self.load_model()
@@ -114,7 +114,7 @@ class Train:
                 return best_val_loss, patience_counter, True
         return best_val_loss, patience_counter, False
 
-    def train(self):
+    def run(self):
         for turn in range(self.epsiode):
             print("current epsiode", turn)
             best_val_loss = float('inf')
@@ -217,5 +217,5 @@ if __name__ == "__main__":
         "epsiode": 100
     }
 
-    trainer = Train(env_config, network_config, training_config)
-    trainer.train()
+    trainer = Trainer(env_config, network_config, training_config)
+    trainer.run()

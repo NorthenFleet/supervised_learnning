@@ -24,8 +24,8 @@ class InferenceRunner:
             "use_transformer": False
         }
 
-        model_path = "%s_%s_model.pth" % (
-            env_config["max_entities"], env_config["max_tasks"])
+        model_path = "%s_%s_%s_model.pth" % (
+            env_config["max_entities"], env_config["max_tasks"], network_config["use_transformer"])
 
         # 初始化模型
         self.model = DecisionNetworkMultiHead(
