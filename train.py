@@ -42,7 +42,7 @@ class Trainer:
         self.optimizer = optim.Adam(
             self.model.parameters(), lr=training_config["lr"])
         self.scheduler = ReduceLROnPlateau(
-            self.optimizer, mode='min', factor=0.1, patience=5)
+            self.optimizer, mode='max', factor=0.1, patience=50)
 
         self.num_epochs = training_config["num_epochs"]
         self.patience = training_config.get("patience", 10)
