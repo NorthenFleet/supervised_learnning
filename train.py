@@ -166,7 +166,8 @@ class Trainer:
                     # 记录每层的损失
                     for name, module in self.model.named_modules():
                         if isinstance(module, nn.Linear) or isinstance(module, nn.Conv2d):
-                            layer_losses[name] += module.weight.grad.abs().mean().item()
+                            if module.weight.grad is not None:
+                                layer_losses[name] += module.weight.grad.abs().mean().item()
 
                 avg_train_loss = total_loss / len(self.dataloader)
                 avg_val_loss = self.validate()
