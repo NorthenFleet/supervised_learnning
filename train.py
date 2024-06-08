@@ -30,6 +30,7 @@ class Train:
             "cuda" if torch.cuda.is_available() else "cpu")
 
         self.model = DecisionNetworkMultiHead(
+            network_config["max_entities"], network_config["max_tasks"],
             network_config["entity_input_dim"], network_config["task_input_dim"], network_config["transfer_dim"],
             network_config["entity_transformer_heads"], network_config["task_transformer_heads"],
             network_config["hidden_dim"], network_config["num_layers"],
@@ -193,12 +194,14 @@ if __name__ == "__main__":
     }
 
     network_config = {
+        "max_entities": env_config["max_entities"],
+        "max_tasks": env_config["max_tasks"],
         "entity_input_dim": env_config["entity_dim"],
         "task_input_dim": env_config["task_dim"],
         "entity_transformer_heads": 2,
         "task_transformer_heads": 2,
         "hidden_dim": 64,
-        "num_layers": 2,
+        "num_layers": 1,
         "mlp_hidden_dim": 128,
         "entity_headds": env_config["max_entities"],
         "output_dim": env_config["max_tasks"]+1,  # max_tasks增加一个任务编号

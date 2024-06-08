@@ -16,7 +16,7 @@ class TransformerEncoder(nn.Module):
 
 
 class DecisionNetworkMultiHead(nn.Module):
-    def __init__(self, entity_input_dim, task_input_dim,
+    def __init__(self, max_entities, max_tasks, entity_input_dim, task_input_dim,
                  transfer_dim, entity_num_heads, task_num_heads,
                  hidden_dim, num_layers, mlp_hidden_dim,
                  entity_heads, output_dim, use_transformer):
@@ -35,9 +35,9 @@ class DecisionNetworkMultiHead(nn.Module):
 
         # 定义全连接层
         self.entity_fc_layers = self._build_fc_layers(
-            transfer_dim, hidden_dim, num_layers)
+            max_entities*transfer_dim, hidden_dim, num_layers)
         self.task_fc_layers = self._build_fc_layers(
-            transfer_dim, hidden_dim, num_layers)
+            max_tasks*transfer_dim, hidden_dim, num_layers)
 
         # 定义transformer
         self.entity_encoder = TransformerEncoder(
@@ -45,7 +45,8 @@ class DecisionNetworkMultiHead(nn.Module):
         self.task_encoder = TransformerEncoder(
             transfer_dim, task_num_heads, hidden_dim, num_layers)
 
-        self.combination_layer = nn.Linear(2 * hidden_dim, transfer_dim)
+        self.combination_layer = nn.Linear(
+            (max_entities+max_tasks)*transfer_dim, transfer_dim)
         self.hidden_layer = nn.Linear(transfer_dim, transfer_dim)
         self.activation = nn.ReLU()
 
@@ -104,16 +105,16 @@ class DecisionNetworkMultiHead(nn.Module):
                 tasks, src_key_padding_mask=task_mask.bool()).max(dim=0)[0]
         else:
             # Embedding for transformers
-            entities = self.entity_embedding(entities)
-            tasks = self.task_embedding(tasks)
+            encoded_entities = self.entity_embedding(entities)
+            encoded_tasks = self.task_embedding(tasks)
+
+            encoded_entities = encoded_entities.view(
+                encoded_entities.size(0), -1)
+            encoded_tasks = encoded_tasks.view(encoded_tasks.size(0), -1)
 
             # Fully connected layers
-            entities = self.entity_fc_layers(entities)
-            tasks = self.task_fc_layers(tasks)
-
-            # Max pooling
-            encoded_entities = entities.max(dim=1)[0]
-            encoded_tasks = tasks.max(dim=1)[0]
+            entities = self.entity_fc_layers(encoded_entities)
+            tasks = self.task_fc_layers(encoded_tasks)
 
         # Combine entity and task encodings
         combined_output = torch.cat((encoded_entities, encoded_tasks), dim=-1)
