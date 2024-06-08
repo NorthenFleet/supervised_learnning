@@ -42,7 +42,7 @@ class Trainer:
         self.optimizer = optim.Adam(
             self.model.parameters(), lr=training_config["lr"])
         self.scheduler = ReduceLROnPlateau(
-            self.optimizer, mode='max', factor=0.1, patience=50)
+            self.optimizer, mode='min', factor=0.1, patience=10)
 
         self.num_epochs = training_config["num_epochs"]
         self.patience = training_config.get("patience", 10)
@@ -62,6 +62,8 @@ class Trainer:
             self.model, (dummy_entities, dummy_tasks, dummy_entity_mask, dummy_task_mask))
 
         self.model_path = "%s_%s_%s_model.pth" % (
+            env_config["max_entities"], env_config["max_tasks"], network_config["use_transformer"])
+        self.name = "%s_%s_%s" % (
             env_config["max_entities"], env_config["max_tasks"], network_config["use_transformer"])
 
         try:
@@ -158,13 +160,24 @@ class Trainer:
                     self.optimizer.step()
 
                     total_loss += loss.item()
+                    # 记录每层的损失
+                    for name, module in self.model.named_modules():
+                        if isinstance(module, nn.Linear) or isinstance(module, nn.Conv2d):
+                            layer_losses[name] += module.weight.grad.abs().mean().item()
 
                 avg_train_loss = total_loss / len(self.dataloader)
                 avg_val_loss = self.validate()
                 self.scheduler.step(avg_val_loss)
 
-                self.logger.log_scalar('Loss/train', avg_train_loss, epoch)
-                self.logger.log_scalar('Loss/val', avg_val_loss, epoch)
+                self.logger.log_scalar(
+                    self.name+'Loss/train', avg_train_loss, epoch)
+                self.logger.log_scalar(
+                    self.name+'Loss/val', avg_val_loss, epoch)
+
+                # 记录每层的平均损失
+                for name, layer_loss in layer_losses.items():
+                    self.logger.log_scalar(
+                        self.name + 'LayerLoss/' + name, layer_loss / len(self.dataloader), epoch)
 
                 print(
                     f"Epoch {epoch + 1}/{self.num_epochs}, Train Loss: {avg_train_loss}, Val Loss: {avg_val_loss}")
@@ -190,7 +203,7 @@ if __name__ == "__main__":
         "entity_dim": 6,
         "task_dim": 4,
         "num_samples": 1024,
-        "undefined": False
+        "undefined": True
     }
 
     network_config = {
