@@ -7,7 +7,6 @@ from env import SampleGenerator, DataPreprocessor
 from network import DecisionNetworkMultiHead
 from model_manager import ModelManager
 from tensorboard_logger import TensorBoardLogger
-import os
 
 
 class Trainer:
@@ -46,7 +45,7 @@ class Trainer:
 
         self.num_epochs = training_config["num_epochs"]
         self.patience = training_config.get("patience", 10)
-        self.epsiode = training_config.get("epsiod", 100)
+        self.epsiode = training_config.get("epsiode", 100)
         self.logger = TensorBoardLogger()
 
         dummy_entities = torch.zeros(
@@ -125,6 +124,9 @@ class Trainer:
             for epoch in range(self.num_epochs):
                 self.model.train()
                 total_loss = 0.0
+                layer_losses = {name: 0.0 for name,
+                                _ in self.model.named_modules()}
+
                 for entities, tasks, entity_mask, task_mask, task_assignments in self.dataloader:
                     entities = entities.to(self.device)
                     tasks = tasks.to(self.device)
@@ -160,6 +162,7 @@ class Trainer:
                     self.optimizer.step()
 
                     total_loss += loss.item()
+
                     # 记录每层的损失
                     for name, module in self.model.named_modules():
                         if isinstance(module, nn.Linear) or isinstance(module, nn.Conv2d):
@@ -203,7 +206,7 @@ if __name__ == "__main__":
         "entity_dim": 6,
         "task_dim": 4,
         "num_samples": 1024,
-        "undefined": True
+        "undefined": False
     }
 
     network_config = {
