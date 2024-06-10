@@ -1,6 +1,7 @@
 from env import SampleGenerator, DataPreprocessor
 from runner import InferenceRunner
 import random
+import torch
 
 
 class Data_Sample():
@@ -28,7 +29,7 @@ class Data_Sample():
 
 if __name__ == "__main__":
     env_config = {
-        "max_entities": 1,
+        "max_entities": 2,
         "max_tasks": 5,
         "entity_dim": 6,
         "task_dim": 4,
@@ -38,8 +39,9 @@ if __name__ == "__main__":
 
     # 创建推理运行器
     runner = InferenceRunner(env_config)
-
-    for i in range(10):
+    times = 100
+    c = 0
+    for i in range(times):
         print("current turn", i)
         # 生成一个样本
         padded_entities, padded_tasks, entity_mask, task_mask, targets = data_sample.generate_sample()
@@ -50,8 +52,13 @@ if __name__ == "__main__":
         network_output = runner.run_inference(
             padded_entities, padded_tasks, entity_mask, task_mask)
 
-        target = data_sample.sample_generator.get_target(
-            padded_entities, padded_tasks)
+        target = targets
+
+        if torch.equal(target, network_output[0]):
+            c += 1
 
         print("output:", network_output[0])
         print("target:", target)
+
+    rate = c/times*100
+    print("完全准确率:", rate, '%')

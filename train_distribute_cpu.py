@@ -1,192 +1,262 @@
+import multiprocessing as mp
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-from torch.multiprocessing import Process, set_start_method, Queue
 from env import SampleGenerator, DataPreprocessor
 from network import DecisionNetworkMultiHead
 from model_manager import ModelManager
 from tensorboard_logger import TensorBoardLogger
-import os
 
 
-def collate_fn(batch):
-    entities, tasks, entity_mask, task_mask, task_assignments = zip(*batch)
-    entities = torch.stack(entities)
-    tasks = torch.stack(tasks)
-    entity_mask = torch.stack(entity_mask)
-    task_mask = torch.stack(task_mask)
-    task_assignments = torch.stack(task_assignments)
-    return entities, tasks, entity_mask, task_mask, task_assignments
+class Trainer:
+    def __init__(self, env_config, network_config, training_config, data_file=None):
+        self.data_preprocessor = DataPreprocessor(
+            env_config["max_entities"], env_config["max_tasks"], env_config["entity_dim"], env_config["task_dim"])
 
+        self.dataset = SampleGenerator(
+            env_config["num_samples"], env_config, self.data_preprocessor)
 
-def train_process(rank, env_config, network_config, training_config, data_file, queue):
-    data_preprocessor = DataPreprocessor(
-        env_config["max_entities"], env_config["max_tasks"], env_config["entity_dim"], env_config["task_dim"])
+        self.dataloader = DataLoader(
+            self.dataset, batch_size=training_config["batch_size"], shuffle=True, collate_fn=self.collate_fn)
 
-    if data_file and os.path.exists(data_file):
-        dataset = SampleGenerator(
-            training_config["num_samples"], data_preprocessor, data_file)
-    else:
-        dataset = SampleGenerator(
-            training_config["num_samples"], data_preprocessor)
-        dataset.save_data(data_file)
+        self.val_dataset = SampleGenerator(
+            env_config["num_samples"] // 10, env_config, self.data_preprocessor)
+        self.val_dataloader = DataLoader(
+            self.val_dataset, batch_size=training_config["batch_size"], shuffle=False, collate_fn=self.collate_fn)
 
-    dataloader = DataLoader(
-        dataset, batch_size=training_config["batch_size"], shuffle=True, collate_fn=collate_fn, num_workers=4)
+        self.device = torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu")
 
-    val_dataset = SampleGenerator(
-        training_config["num_samples"] // 10, data_preprocessor, data_file)
-    val_dataloader = DataLoader(
-        val_dataset, batch_size=training_config["batch_size"], shuffle=False, collate_fn=collate_fn, num_workers=4)
+        self.model = DecisionNetworkMultiHead(
+            network_config["max_entities"], network_config["max_tasks"],
+            network_config["entity_input_dim"], network_config["task_input_dim"], network_config["transfer_dim"],
+            network_config["entity_transformer_heads"], network_config["task_transformer_heads"],
+            network_config["hidden_dim"], network_config["num_layers"],
+            network_config["mlp_hidden_dim"], env_config["max_entities"],
+            network_config["output_dim"] + 1, network_config["use_transformer"])  # 增加一个任务编号
+        self.model.to(self.device)
 
-    model = DecisionNetworkMultiHead(
-        env_config["entity_dim"], env_config["task_dim"], network_config["transfer_dim"],
-        network_config["entity_num_heads"], network_config["task_num_heads"],
-        network_config["hidden_dim"], network_config["num_layers"],
-        network_config["mlp_hidden_dim"], env_config["max_entities"],
-        network_config["output_dim"] + 1)  # 增加一个任务编号
-    model.share_memory()  # 将模型设置为共享内存模式
+        self.criterion = nn.CrossEntropyLoss(ignore_index=-1)
+        self.optimizer = optim.Adam(
+            self.model.parameters(), lr=training_config["lr"])
+        self.scheduler = ReduceLROnPlateau(
+            self.optimizer, mode='min', factor=0.95, patience=30)
 
-    criterion = nn.CrossEntropyLoss(ignore_index=-1)
-    optimizer = optim.Adam(model.parameters(), lr=training_config["lr"])
-    scheduler = ReduceLROnPlateau(
-        optimizer, mode='min', factor=0.1, patience=5)
+        self.num_epochs = training_config["num_epochs"]
+        self.patience = training_config.get("patience", 10)
+        self.epsiode = training_config.get("epsiode", 100)
+        self.logger = TensorBoardLogger()
 
-    num_epochs = training_config["num_epochs"]
-    patience = training_config.get("patience", 10)
-    logger = TensorBoardLogger()
+        dummy_entities = torch.zeros(
+            (training_config["batch_size"], env_config["max_entities"], env_config["entity_dim"])).to(self.device)
+        dummy_tasks = torch.zeros(
+            (training_config["batch_size"], env_config["max_tasks"], env_config["task_dim"])).to(self.device)
+        dummy_entity_mask = torch.ones(
+            (training_config["batch_size"], env_config["max_entities"])).to(self.device)
+        dummy_task_mask = torch.ones(
+            (training_config["batch_size"], env_config["max_tasks"])).to(self.device)
 
-    def validate():
-        model.eval()
+        self.logger.log_graph(
+            self.model, (dummy_entities, dummy_tasks, dummy_entity_mask, dummy_task_mask))
+
+        self.model_path = "%s_%s_%s_model.pth" % (
+            env_config["max_entities"], env_config["max_tasks"], network_config["use_transformer"])
+        self.name = "%s_%s_%s" % (
+            env_config["max_entities"], env_config["max_tasks"], network_config["use_transformer"])
+
+        try:
+            self.load_model()
+            print(f"Successfully loaded model from {self.model_path}")
+        except FileNotFoundError:
+            print(
+                f"No existing model found at {self.model_path}. Starting training from scratch.")
+
+    def collate_fn(self, batch):
+        entities, tasks, entity_mask, task_mask, task_assignments = zip(*batch)
+        entities = torch.stack(entities)
+        tasks = torch.stack(tasks)
+        entity_mask = torch.stack(entity_mask)
+        task_mask = torch.stack(task_mask)
+        task_assignments = torch.stack(task_assignments)
+        return entities, tasks, entity_mask, task_mask, task_assignments
+
+    def validate(self):
+        self.model.eval()
         total_val_loss = 0.0
         with torch.no_grad():
-            for entities, tasks, entity_mask, task_mask, targets in val_dataloader:
-                outputs = model(entities, tasks, entity_mask, task_mask)
+            for entities, tasks, entity_mask, task_mask, targets in self.val_dataloader:
+                entities, tasks, entity_mask, task_mask, targets = entities.to(self.device), tasks.to(
+                    self.device), entity_mask.to(self.device), task_mask.to(self.device), targets.to(self.device)
+
+                outputs = self.model(entities, tasks, entity_mask, task_mask)
                 if outputs is None:
                     continue
 
                 loss = 0
                 for i in range(outputs.shape[1]):
-                    loss += criterion(outputs[:, i, :], targets[:, i])
+                    loss += self.criterion(outputs[:, i, :],
+                                           targets[:, i])
 
                 total_val_loss += loss.item()
 
-        avg_val_loss = total_val_loss / len(val_dataloader)
+        avg_val_loss = total_val_loss / len(self.val_dataloader)
         return avg_val_loss
 
-    def early_stopping_check(avg_val_loss, best_val_loss, patience_counter, path):
+    def early_stopping_check(self, avg_val_loss, best_val_loss, patience_counter, path):
         if avg_val_loss < best_val_loss:
             best_val_loss = avg_val_loss
             patience_counter = 0
-            save_model(path)
+            self.save_model(path)
         else:
             patience_counter += 1
-            if patience_counter >= patience:
+            if patience_counter >= self.patience:
                 print("Early stopping triggered")
                 return best_val_loss, patience_counter, True
         return best_val_loss, patience_counter, False
 
-    def save_model(path):
-        ModelManager.save_model(model, path)
+    def run(self):
+        for turn in range(self.epsiode):
+            print("current epsiode", turn)
+            best_val_loss = float('inf')
+            patience_counter = 0
 
-    def load_model(path):
-        ModelManager.load_model(model, path, torch.device('cpu'))
+            for epoch in range(self.num_epochs):
+                self.model.train()
+                total_loss = 0.0
+                layer_losses = {name: 0.0 for name,
+                                _ in self.model.named_modules()}
 
-    best_val_loss = float('inf')
-    patience_counter = 0
+                for entities, tasks, entity_mask, task_mask, task_assignments in self.dataloader:
+                    entities = entities.to(self.device)
+                    tasks = tasks.to(self.device)
+                    entity_mask = entity_mask.to(self.device)
+                    task_mask = task_mask.to(self.device)
+                    task_assignments = task_assignments.to(self.device)
 
-    for epoch in range(num_epochs):
-        model.train()
-        total_loss = 0.0
-        for entities, tasks, entity_mask, task_mask, task_assignments in dataloader:
-            optimizer.zero_grad()
+                    self.optimizer.zero_grad()
 
-            outputs = model(entities, tasks, entity_mask, task_mask)
-            if outputs is None:
-                continue
+                    outputs = self.model(
+                        entities, tasks, entity_mask, task_mask)
 
-            loss = 0
-            for i in range(outputs.shape[1]):
-                loss += criterion(outputs[:, i, :], task_assignments[:, i])
+                    if torch.isnan(outputs).any():
+                        print("NaN detected in output")
+                        return None
+                    if outputs is None:
+                        continue
 
-            loss.backward()
+                    # 计算每个平台对应任务的损失
+                    loss = 0
+                    for i in range(outputs.shape[1]):
+                        loss += self.criterion(outputs[:, i, :],
+                                               task_assignments[:, i])
+                        if torch.isnan(loss).any():
+                            print("NaN detected in loss")
+                            return None
 
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+                    loss.backward()
 
-            optimizer.step()
+                    torch.nn.utils.clip_grad_norm_(
+                        self.model.parameters(), max_norm=1.0)
 
-            total_loss += loss.item()
+                    self.optimizer.step()
 
-        avg_train_loss = total_loss / len(dataloader)
-        avg_val_loss = validate()
-        scheduler.step(avg_val_loss)
+                    total_loss += loss.item()
 
-        logger.log_scalar('Loss/train', avg_train_loss, epoch)
-        logger.log_scalar('Loss/val', avg_val_loss, epoch)
+                    # 记录每层的损失
+                    for name, module in self.model.named_modules():
+                        if isinstance(module, nn.Linear) or isinstance(module, nn.Conv2d):
+                            if module.weight.grad is not None:
+                                layer_losses[name] += module.weight.grad.abs().mean().item()
 
-        print(
-            f"Rank {rank} - Epoch {epoch + 1}/{num_epochs}, Train Loss: {avg_train_loss}, Val Loss: {avg_val_loss}")
+                avg_train_loss = total_loss / len(self.dataloader)
+                avg_val_loss = self.validate()
+                self.scheduler.step(avg_val_loss)
 
-        best_val_loss, patience_counter, stop = early_stopping_check(
-            avg_val_loss, best_val_loss, patience_counter, f"best_model_rank_{rank}.pth")
-        if stop:
-            break
+                self.logger.log_scalar(
+                    self.name+'Loss/train', avg_train_loss, epoch)
+                self.logger.log_scalar(
+                    self.name+'Loss/val', avg_val_loss, epoch)
 
-    queue.put((rank, best_val_loss))
+                # 记录每层的平均损失
+                for name, layer_loss in layer_losses.items():
+                    self.logger.log_scalar(
+                        self.name + 'LayerLoss/' + name, layer_loss / len(self.dataloader), epoch)
+
+                print(
+                    f"Epoch {epoch + 1}/{self.num_epochs}, Train Loss: {avg_train_loss}, Val Loss: {avg_val_loss}")
+
+                best_val_loss, patience_counter, stop = self.early_stopping_check(
+                    avg_val_loss, best_val_loss, patience_counter, "best_model.pth")
+                if stop:
+                    break
+
+            self.save_model(self.model_path)
+
+    def save_model(self, path):
+        ModelManager.save_model(self.model, self.model_path)
+
+    def load_model(self):
+        ModelManager.load_model(self.model, self.model_path, self.device)
 
 
-def main(env_config, network_config, training_config, data_file):
-    try:
-        set_start_method('spawn')
-    except RuntimeError:
-        pass
+def run_training(env_config, network_config, training_config):
+    trainer = Trainer(env_config, network_config, training_config)
+    trainer.run()
 
-    num_processes = 6  # 可以根据CPU核心数调整
+
+if __name__ == "__main__":
+    env_config = {
+        "max_entities": 2,
+        "max_tasks": 5,
+        "entity_dim": 6,
+        "task_dim": 4,
+        "num_samples": 1024,
+        "undefined": False
+    }
+
+    network_config = {
+        "max_entities": env_config["max_entities"],
+        "max_tasks": env_config["max_tasks"],
+        "entity_input_dim": env_config["entity_dim"],
+        "task_input_dim": env_config["task_dim"],
+        "entity_transformer_heads": 2,
+        "task_transformer_heads": 2,
+        "hidden_dim": 64,
+        "num_layers": 1,
+        "mlp_hidden_dim": 128,
+        "entity_headds": env_config["max_entities"],
+        "output_dim": env_config["max_tasks"]+1,  # max_tasks增加一个任务编号
+        "transfer_dim": 128,
+        "use_transformer": False
+    }
+
+    training_config = {
+        "batch_size": 32,
+        "lr": 0.001,
+        "num_epochs": 400,
+        "patience": 50,
+        "epsiode": 100
+    }
+
+    # 参数列表
+    param_list = [
+        {"lr": 0.001, "batch_size": 32},
+        {"lr": 0.0005, "batch_size": 64},
+        {"lr": 0.001, "batch_size": 64},
+        {"lr": 0.0001, "batch_size": 128},
+        {"lr": 0.0005, "batch_size": 128}
+    ]
+
     processes = []
-    queue = Queue()
 
-    for rank in range(num_processes):
-        p = Process(target=train_process, args=(rank, env_config,
-                    network_config, training_config, data_file, queue))
+    for i, params in enumerate(param_list):
+        training_config.update(params)
+        p = mp.Process(target=run_training, args=(
+            env_config, network_config, training_config))
         p.start()
         processes.append(p)
 
     for p in processes:
         p.join()
-
-    results = []
-    while not queue.empty():
-        results.append(queue.get())
-
-    print("Training results:", results)
-
-
-if __name__ == "__main__":
-    env_config = {
-        "max_entities": 5,
-        "max_tasks": 5,
-        "entity_dim": 6,
-        "task_dim": 4
-    }
-
-    network_config = {
-        "entity_num_heads": 2,
-        "task_num_heads": 2,
-        "hidden_dim": 64,
-        "num_layers": 2,
-        "mlp_hidden_dim": 128,
-        "output_dim": 5,  # 增加一个任务编号
-        "transfer_dim": 128
-    }
-
-    training_config = {
-        "num_samples": 1024,
-        "batch_size": 32,
-        "lr": 0.001,
-        "num_epochs": 50,
-        "patience": 10
-    }
-
-    main(env_config, network_config, training_config, data_file="train_data.h5")
