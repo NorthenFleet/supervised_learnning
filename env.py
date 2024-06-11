@@ -66,13 +66,20 @@ class SampleGenerator(Dataset):
                 task_type = np.random.randint(0, 3)
                 tasks[j] = [priority, x, y, task_type]
 
-            tasks = tasks[tasks[:, 0].argsort()[::-1]]
+            sort_indices = tasks[:, 0].argsort()[::-1]
+            sort_tasks = tasks[tasks[:, 0].argsort()[::-1]]
+
+            padded_entities, padded_tasks, entity_mask, task_mask = self.data_preprocessor.pad_and_mask(
+                entities, sort_tasks)
+            targets = self.__getreward__(
+                padded_entities, padded_tasks)  # 计算最佳任务
+            for i in range(len(targets)):
+                if targets[i] == num_tasks:
+                    continue
+                targets[i] = sort_indices[targets[i]]
 
             padded_entities, padded_tasks, entity_mask, task_mask = self.data_preprocessor.pad_and_mask(
                 entities, tasks)
-            targets = self.__getreward__(
-                padded_entities, padded_tasks)  # 计算最佳任务
-
             entities_list.append(padded_entities.numpy())
             tasks_list.append(padded_tasks.numpy())
             entity_masks_list.append(entity_mask.numpy())
@@ -91,7 +98,7 @@ class SampleGenerator(Dataset):
         tasks = (tasks - np.mean(tasks, axis=0)) / \
             (np.std(tasks, axis=0) + 1e-5)
 
-        for i in range(entities.shape[0]):
+        for i in range(entities.shape[0]):  # 补零后标准化会不会有问题
             self.data.append((torch.tensor(entities[i]), torch.tensor(tasks[i]),
                              torch.tensor(entity_masks[i]), torch.tensor(task_masks[i]), torch.tensor(targets[i])))
 
