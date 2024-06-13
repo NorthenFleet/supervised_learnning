@@ -8,6 +8,9 @@ class TensorBoardLogger:
     def log_scalar(self, tag, value, step):
         self.writer.add_scalar(tag, value, step)
 
+    def log_histogram(self, tag, values, step):
+        self.writer.add_histogram(tag, values, step)
+
     def log_graph(self, model, dummy_inputs):
         self.writer.add_graph(model, dummy_inputs)
 

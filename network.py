@@ -74,7 +74,7 @@ class DecisionNetworkMultiHead(nn.Module):
             layers.append(nn.Conv2d(input_channels, output_channels,
                                     kernel_size=3, padding=1))
             layers.append(nn.BatchNorm2d(output_channels))
-            layers.append(nn.ReLU())
+            layers.append(nn.ReLU())d
             layers.append(nn.MaxPool2d(kernel_size=2, stride=2))
             input_channels = output_channels
         return nn.Sequential(*layers)
@@ -113,8 +113,8 @@ class DecisionNetworkMultiHead(nn.Module):
             encoded_tasks = encoded_tasks.view(encoded_tasks.size(0), -1)
 
             # Fully connected layers
-            entities = self.entity_fc_layers(encoded_entities)
-            tasks = self.task_fc_layers(encoded_tasks)
+            encoded_entities = self.entity_fc_layers(encoded_entities)
+            encoded_tasks = self.task_fc_layers(encoded_tasks)
 
         # Combine entity and task encodings
         combined_output = torch.cat((encoded_entities, encoded_tasks), dim=-1)

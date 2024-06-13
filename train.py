@@ -163,11 +163,16 @@ class Trainer:
 
                     total_loss += loss.item()
 
-                    # 记录每层的损失
-                    for name, module in self.model.named_modules():
-                        if isinstance(module, nn.Linear) or isinstance(module, nn.Conv2d):
-                            if module.weight.grad is not None:
-                                layer_losses[name] += module.weight.grad.abs().mean().item()
+                    # 记录每层的梯度
+                    for name, param in self.model.named_parameters():
+                        if param.grad is not None:
+                            self.logger.log_scalar(
+                                f'{self.name}/gradient_norms/{name}', param.grad.norm().item(), epoch)
+
+                            self.logger.log_histogram(
+                                f'{name}.weight', param.data, epoch)
+                            self.logger.log_histogram(
+                                f'{name}.grad', param.grad, epoch)
 
                 avg_train_loss = total_loss / len(self.dataloader)
                 avg_val_loss = self.validate()
@@ -177,11 +182,6 @@ class Trainer:
                     self.name+'Loss/train', avg_train_loss, epoch)
                 self.logger.log_scalar(
                     self.name+'Loss/val', avg_val_loss, epoch)
-
-                # 记录每层的平均损失
-                for name, layer_loss in layer_losses.items():
-                    self.logger.log_scalar(
-                        self.name + 'LayerLoss/' + name, layer_loss / len(self.dataloader), epoch)
 
                 print(
                     f"Epoch {epoch + 1}/{self.num_epochs}, Train Loss: {avg_train_loss}, Val Loss: {avg_val_loss}")
