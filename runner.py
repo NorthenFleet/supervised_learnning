@@ -21,7 +21,8 @@ class InferenceRunner:
             "entity_headds": env_config["max_entities"],
             "output_dim": env_config["max_tasks"]+1,  # max_tasks增加一个任务编号
             "transfer_dim": 128,
-            "use_transformer": False
+            "use_transformer": False,
+            "use_head_mask": False,
         }
 
         model_path = "%s_%s_%s_model.pth" % (
@@ -35,7 +36,8 @@ class InferenceRunner:
             network_config["hidden_dim"], network_config["num_layers"],
             network_config["mlp_hidden_dim"], env_config["max_entities"],
             # 增加一个任务编号
-            network_config["output_dim"] + 1, network_config["use_transformer"])
+            network_config["output_dim"] + 1, network_config["use_transformer"],
+            network_config["use_head_mask"])
 
         # 加载训练好的模型权重
         self.load_model(model_path)

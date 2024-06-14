@@ -34,7 +34,10 @@ class Trainer:
             network_config["entity_transformer_heads"], network_config["task_transformer_heads"],
             network_config["hidden_dim"], network_config["num_layers"],
             network_config["mlp_hidden_dim"], env_config["max_entities"],
-            network_config["output_dim"] + 1, network_config["use_transformer"])  # 增加一个任务编号
+            network_config["output_dim"] +
+            1, network_config["use_transformer"],
+            network_config["use_head_mask"]
+        )  # 增加一个任务编号
         self.model.to(self.device)
 
         self.criterion = nn.CrossEntropyLoss(ignore_index=-1)
@@ -223,7 +226,8 @@ if __name__ == "__main__":
         "entity_headds": env_config["max_entities"],
         "output_dim": env_config["max_tasks"]+1,  # max_tasks增加一个任务编号
         "transfer_dim": 128,
-        "use_transformer": False
+        "use_transformer": False,
+        "use_head_mask": False
     }
 
     training_config = {
