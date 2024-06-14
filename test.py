@@ -29,8 +29,8 @@ class Data_Sample():
 
 if __name__ == "__main__":
     env_config = {
-        "max_entities": 2,
-        "max_tasks": 5,
+        "max_entities": 20,
+        "max_tasks": 20,
         "entity_dim": 6,
         "task_dim": 4,
         "undefined": False

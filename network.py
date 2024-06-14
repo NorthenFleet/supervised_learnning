@@ -46,7 +46,7 @@ class DecisionNetworkMultiHead(nn.Module):
             transfer_dim, task_num_heads, hidden_dim, num_layers)
 
         self.combination_layer = nn.Linear(
-            (max_entities+max_tasks)*transfer_dim, transfer_dim)
+            transfer_dim, transfer_dim)
         self.hidden_layer = nn.Linear(transfer_dim, transfer_dim)
         self.activation = nn.ReLU()
 
@@ -74,7 +74,7 @@ class DecisionNetworkMultiHead(nn.Module):
             layers.append(nn.Conv2d(input_channels, output_channels,
                                     kernel_size=3, padding=1))
             layers.append(nn.BatchNorm2d(output_channels))
-            layers.append(nn.ReLU())d
+            layers.append(nn.ReLU())
             layers.append(nn.MaxPool2d(kernel_size=2, stride=2))
             input_channels = output_channels
         return nn.Sequential(*layers)

@@ -164,15 +164,15 @@ class Trainer:
                     total_loss += loss.item()
 
                     # 记录每层的梯度
-                    for name, param in self.model.named_parameters():
-                        if param.grad is not None:
-                            self.logger.log_scalar(
-                                f'{self.name}/gradient_norms/{name}', param.grad.norm().item(), epoch)
-
-                            self.logger.log_histogram(
-                                f'{name}.weight', param.data, epoch)
-                            self.logger.log_histogram(
-                                f'{name}.grad', param.grad, epoch)
+                    # for name, param in self.model.named_parameters():
+                    #     if param.grad is not None:
+                    #         self.logger.log_scalar(
+                    #             f'{self.name}/gradient_norms/{name}', param.grad.norm().item(), epoch)
+                    # if 'combination_layer' in name or 'heads' in name:
+                    #     self.logger.log_histogram(
+                    #         f'{name}.weight', param.data, epoch)
+                    #     self.logger.log_histogram(
+                    #         f'{name}.grad', param.grad, epoch)
 
                 avg_train_loss = total_loss / len(self.dataloader)
                 avg_val_loss = self.validate()
@@ -202,8 +202,8 @@ class Trainer:
 
 if __name__ == "__main__":
     env_config = {
-        "max_entities": 2,
-        "max_tasks": 5,
+        "max_entities": 20,
+        "max_tasks": 20,
         "entity_dim": 6,
         "task_dim": 4,
         "num_samples": 1024,
