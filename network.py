@@ -85,10 +85,10 @@ class DecisionNetworkMultiHead(nn.Module):
         tasks = self.task_layer_norm(tasks)
 
         # batch normalization
-        # entities = self.entity_batch_norm(
-        #     entities.view(-1, self.entity_input_dim)).view(entities.shape)
-        # tasks = self.task_batch_norm(
-        #     tasks.view(-1, self.task_input_dim)).view(tasks.shape)
+        entities = self.entity_batch_norm(
+            entities.view(-1, self.entity_input_dim)).view(entities.shape)
+        tasks = self.task_batch_norm(
+            tasks.view(-1, self.task_input_dim)).view(tasks.shape)
 
         if self.use_transformer:
             # Embedding for transformers
