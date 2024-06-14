@@ -187,12 +187,10 @@ class Trainer:
                 self.logger.log_scalar(
                     self.name+'Loss/val', avg_val_loss, epoch)
 
-                print(f"Epoch {epoch + 1}/{self.num_epochs},
-                      Train Loss: {avg_train_loss},
-                      Val Loss: {avg_val_loss},
-                      entity_num_heads: {self.network_config["entity_transformer_heads"]},
-                      task_transformer_heads: {self.network_config["task_transformer_heads"]},
-                      lr: {self.scheduler}")
+                entity_transformer_heads = self.network_config["entity_transformer_heads"]
+                task_transformer_heads = self.network_config["task_transformer_heads"]
+                current_lr = self.optimizer.param_groups[0]['lr']
+                print(f"Epoch {epoch + 1}/{self.num_epochs},Train Loss: {avg_train_loss},Val Loss: {avg_val_loss},entity_num_heads: {entity_transformer_heads},task_transformer_heads: {task_transformer_heads},lr: {current_lr}")
 
                 best_val_loss, patience_counter, stop = self.early_stopping_check(
                     avg_val_loss, best_val_loss, patience_counter, "best_model.pth")
@@ -223,8 +221,8 @@ if __name__ == "__main__":
         "max_tasks": env_config["max_tasks"],
         "entity_input_dim": env_config["entity_dim"],
         "task_input_dim": env_config["task_dim"],
-        "entity_transformer_heads": 4,
-        "task_transformer_heads": 4,
+        "entity_transformer_heads": 8,
+        "task_transformer_heads": 8,
         "hidden_dim": 64,
         "num_layers": 1,
         "mlp_hidden_dim": 128,
