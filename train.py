@@ -11,6 +11,7 @@ from tensorboard_logger import TensorBoardLogger
 
 class Trainer:
     def __init__(self, env_config, network_config, training_config, data_file=None):
+        self.network_config = network_config
         self.data_preprocessor = DataPreprocessor(
             env_config["max_entities"], env_config["max_tasks"], env_config["entity_dim"], env_config["task_dim"])
 
@@ -186,8 +187,12 @@ class Trainer:
                 self.logger.log_scalar(
                     self.name+'Loss/val', avg_val_loss, epoch)
 
-                print(
-                    f"Epoch {epoch + 1}/{self.num_epochs}, Train Loss: {avg_train_loss}, Val Loss: {avg_val_loss}")
+                print(f"Epoch {epoch + 1}/{self.num_epochs},
+                      Train Loss: {avg_train_loss},
+                      Val Loss: {avg_val_loss},
+                      entity_num_heads: {self.network_config["entity_transformer_heads"]},
+                      task_transformer_heads: {self.network_config["task_transformer_heads"]},
+                      lr: {self.scheduler}")
 
                 best_val_loss, patience_counter, stop = self.early_stopping_check(
                     avg_val_loss, best_val_loss, patience_counter, "best_model.pth")
@@ -218,8 +223,8 @@ if __name__ == "__main__":
         "max_tasks": env_config["max_tasks"],
         "entity_input_dim": env_config["entity_dim"],
         "task_input_dim": env_config["task_dim"],
-        "entity_transformer_heads": 2,
-        "task_transformer_heads": 2,
+        "entity_transformer_heads": 4,
+        "task_transformer_heads": 4,
         "hidden_dim": 64,
         "num_layers": 1,
         "mlp_hidden_dim": 128,

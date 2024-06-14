@@ -1,0 +1,31 @@
+{
+    "name": "PyTorch Development",
+    "build": {
+        "dockerfile": "Dockerfile",
+        "args": {
+            "VARIANT": "3.8-buster",
+            "INSTALL_NODE": "true",
+            "NODE_VERSION": "lts/*"
+        }
+    },
+    "settings": {
+        "terminal.integrated.shell.linux": "/bin/bash",
+        "python.pythonPath": "/opt/conda/bin/python",
+        "python.linting.enabled": true,
+        "python.linting.pylintEnabled": true,
+        "python.formatting.autopep8Path": "/opt/conda/bin/autopep8",
+        "python.formatting.blackPath": "/opt/conda/bin/black",
+        "python.linting.pylintPath": "/opt/conda/bin/pylint"
+    },
+    "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance"
+    ],
+    "remoteUser": "vscode",
+    "postCreateCommand": "pip install -r requirements.txt",
+    "runArgs": [
+        "--gpus all",
+        "--shm-size=2g"
+    ],
+    "workspaceFolder": "/workspace"
+}

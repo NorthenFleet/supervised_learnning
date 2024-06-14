@@ -13,8 +13,8 @@ class InferenceRunner:
             "max_tasks": env_config["max_tasks"],
             "entity_input_dim": env_config["entity_dim"],
             "task_input_dim": env_config["task_dim"],
-            "entity_transformer_heads": 2,
-            "task_transformer_heads": 2,
+            "entity_transformer_heads": 4,
+            "task_transformer_heads": 4,
             "hidden_dim": 64,
             "num_layers": 1,
             "mlp_hidden_dim": 128,
@@ -36,7 +36,8 @@ class InferenceRunner:
             network_config["hidden_dim"], network_config["num_layers"],
             network_config["mlp_hidden_dim"], env_config["max_entities"],
             # 增加一个任务编号
-            network_config["output_dim"] + 1, network_config["use_transformer"],
+            network_config["output_dim"] + \
+            1, network_config["use_transformer"],
             network_config["use_head_mask"])
 
         # 加载训练好的模型权重
