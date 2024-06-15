@@ -6,7 +6,6 @@ from network import DecisionNetworkMultiHead
 class InferenceRunner:
     def __init__(self, env_config):
         self.device = torch.device("cpu")
-        self.model_manager = ModelManager(env_config)
 
         network_config = {
             "max_entities": env_config["max_entities"],
