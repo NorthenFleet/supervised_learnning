@@ -26,8 +26,9 @@ class Trainer:
         self.val_dataloader = DataLoader(
             self.val_dataset, batch_size=training_config["batch_size"], shuffle=False, collate_fn=self.collate_fn)
 
+        torch.cuda.set_device(0)
         self.device = torch.device(
-            "cuda" if torch.cuda.is_available() else "cpu")
+            "cuda:0" if torch.cuda.is_available() else "cpu")
 
         self.model = DecisionNetworkMultiHead(
             network_config["max_entities"], network_config["max_tasks"],
@@ -45,7 +46,7 @@ class Trainer:
         self.optimizer = optim.Adam(
             self.model.parameters(), lr=training_config["lr"])
         self.scheduler = ReduceLROnPlateau(
-            self.optimizer, mode='min', factor=0.95, patience=30)
+            self.optimizer, mode=training_config["lr_mode"], factor=training_config["factor"], patience=training_config["patience"])
 
         self.num_epochs = training_config["num_epochs"]
         self.patience = training_config.get("patience", 10)
@@ -238,7 +239,10 @@ if __name__ == "__main__":
         "lr": 0.001,
         "num_epochs": 400,
         "patience": 50,
-        "epsiode": 100
+        "epsiode": 100,
+        "lr_mode": 'min',
+        "factor": 0.95,
+        "patience": 100
     }
 
     trainer = Trainer(env_config, network_config, training_config)
