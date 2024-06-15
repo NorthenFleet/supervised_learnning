@@ -5,9 +5,7 @@ from network import DecisionNetworkMultiHead
 
 class InferenceRunner:
     def __init__(self, env_config):
-        torch.cuda.set_device(0)
-        self.device = torch.device(
-            "cuda:0" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device("cpu")
 
         network_config = {
             "max_entities": env_config["max_entities"],
