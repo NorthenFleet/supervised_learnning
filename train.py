@@ -211,7 +211,7 @@ if __name__ == "__main__":
         "max_tasks": 20,
         "entity_dim": 6,
         "task_dim": 4,
-        "num_samples": 1024,
+        "num_samples": 102400,
         "undefined": False
     }
 
