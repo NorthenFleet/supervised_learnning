@@ -18,8 +18,8 @@ class TransformerEncoder(nn.Module):
 class DecisionNetworkMultiHead(nn.Module):
     def __init__(self, max_entities, max_tasks, entity_input_dim, task_input_dim,
                  transfer_dim, entity_num_heads, task_num_heads,
-                 hidden_dim, num_layers, mlp_hidden_dim,
-                 entity_heads, output_dim, use_transformer, use_head_mask):
+                 hidden_dim, num_layers, mlp_hidden_dim, entity_heads,
+                 output_dim, use_transformer, use_head_mask, batch_size):
         super(DecisionNetworkMultiHead, self).__init__()
         self.use_transformer = use_transformer
         self.use_head_mask = use_head_mask
@@ -60,6 +60,9 @@ class DecisionNetworkMultiHead(nn.Module):
                 nn.Linear(mlp_hidden_dim, output_dim)
             ) for _ in range(entity_heads)
         ])
+
+        self.head_masks = torch.zeros((batch_size, output_dim)).unsqueeze(1).repeat(
+            1, len(self.heads), 1)  # shape: (batch_size, num_heads, max_tasks)
 
     def _build_fc_layers(self, input_dim, hidden_dim, num_layers):
         layers = []
@@ -123,9 +126,6 @@ class DecisionNetworkMultiHead(nn.Module):
         combined_output = self.combination_layer(combined_output)
         combined_output = self.activation(combined_output)
 
-        head_masks = torch.zeros_like(task_mask).unsqueeze(1).repeat(
-            1, len(self.heads), 1)  # shape: (batch_size, num_heads, max_tasks)
-
         # Multi-head outputs
         outputs = []
         for i in range(len(self.heads)):
@@ -140,11 +140,13 @@ class DecisionNetworkMultiHead(nn.Module):
             if self.use_head_mask:
                 # Apply task mask
                 output = output.masked_fill(
-                    head_masks[:, i].bool(), -float('inf'))
+                    self.head_masks[:, i].bool(), -float('inf'))
 
                 # Update mask
                 head_indices = torch.argmax(output, dim=-1, keepdim=True)
-                head_masks.scatter_(2, head_indices, 1)
+                # 将维度扩展为(batch_size, num_heads, 1)
+                head_indices = head_indices.unsqueeze(-1)
+                self.head_masks.scatter_(2, head_indices, 1)
 
             outputs.append(output)
 

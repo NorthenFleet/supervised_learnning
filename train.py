@@ -26,9 +26,8 @@ class Trainer:
         self.val_dataloader = DataLoader(
             self.val_dataset, batch_size=training_config["batch_size"], shuffle=False, collate_fn=self.collate_fn)
 
-        torch.cuda.set_device(0)
         self.device = torch.device(
-            "cuda:0" if torch.cuda.is_available() else "cpu")
+            "cuda" if torch.cuda.is_available() else "cpu")
 
         self.model = DecisionNetworkMultiHead(
             network_config["max_entities"], network_config["max_tasks"],
@@ -36,9 +35,8 @@ class Trainer:
             network_config["entity_transformer_heads"], network_config["task_transformer_heads"],
             network_config["hidden_dim"], network_config["num_layers"],
             network_config["mlp_hidden_dim"], env_config["max_entities"],
-            network_config["output_dim"] +
-            1, network_config["use_transformer"],
-            network_config["use_head_mask"]
+            network_config["output_dim"], network_config["use_transformer"],
+            network_config["use_head_mask"], training_config["batch_size"]
         )  # 增加一个任务编号
         self.model.to(self.device)
 
@@ -238,7 +236,6 @@ if __name__ == "__main__":
         "batch_size": 32,
         "lr": 0.001,
         "num_epochs": 400,
-        "patience": 50,
         "epsiode": 100,
         "lr_mode": 'min',
         "factor": 0.95,
