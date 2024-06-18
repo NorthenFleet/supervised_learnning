@@ -22,6 +22,7 @@ class InferenceRunner:
             "transfer_dim": 128,
             "use_transformer": False,
             "use_head_mask": False,
+            "batch_size": 32,
         }
 
         model_path = "%s_%s_%s_model.pth" % (
@@ -37,7 +38,9 @@ class InferenceRunner:
             # 增加一个任务编号
             network_config["output_dim"] + \
             1, network_config["use_transformer"],
-            network_config["use_head_mask"])
+            network_config["use_head_mask"],
+            network_config["batch_size"]
+        )
 
         # 加载训练好的模型权重
         self.load_model(model_path)
