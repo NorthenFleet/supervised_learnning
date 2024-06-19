@@ -36,8 +36,7 @@ class InferenceRunner:
             network_config["hidden_dim"], network_config["num_layers"],
             network_config["mlp_hidden_dim"], env_config["max_entities"],
             # 增加一个任务编号
-            network_config["output_dim"] + \
-            1, network_config["use_transformer"],
+            network_config["output_dim"], network_config["use_transformer"],
             network_config["use_head_mask"],
             network_config["batch_size"]
         )
